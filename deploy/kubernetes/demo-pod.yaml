@@ -1,0 +1,30 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: podpvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: csi-packet-pd
+  resources:
+    requests:
+      storage: 50Gi
+
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-server
+spec:
+  containers:
+   - name: web-server
+     image: nginx 
+     volumeMounts:
+       - mountPath: /var/lib/www/html
+         name: mypvc
+  volumes:
+   - name: mypvc
+     persistentVolumeClaim:
+       claimName: podpvc
+       readOnly: false

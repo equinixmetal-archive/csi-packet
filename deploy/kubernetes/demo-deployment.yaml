@@ -1,0 +1,55 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: podpvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: csi-packet-pd
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+  creationTimestamp: null
+  generation: 1
+  labels:
+    run: nginx
+  name: nginx
+  selfLink: /apis/extensions/v1beta1/namespaces/default/deployments/nginx
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      run: nginx
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      name: web-server
+      labels:
+        run: nginx
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+        volumeMounts:
+          - mountPath: /var/lib/www/html
+            name: mypvc
+      volumes:
+      - name: mypvc
+        persistentVolumeClaim:
+          claimName: podpvc
+          readOnly: false
+
