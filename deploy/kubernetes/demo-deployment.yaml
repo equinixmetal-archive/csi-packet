@@ -5,7 +5,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: csi-packet-pd
+  storageClassName: csi-packet-standard
   resources:
     requests:
       storage: 1Gi
