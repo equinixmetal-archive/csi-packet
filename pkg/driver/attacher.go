@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 func execCommand(command string, args ...string) ([]byte, error) {
 	out, err := exec.Command(command, args...).CombinedOutput()
 	if err != nil {
-		glog.V(5).Infof("%s %v : %s, %v", command, args, out, err)
+		log.WithFields(log.Fields{"command": command, "args": strings.Join(args, " "), "out": string(out[:]), "error": err.Error()}).Info("Error")
 		return nil, err
 	}
 	return out, nil
@@ -41,7 +41,7 @@ func multipath(args ...string) (string, error) {
 	output, err := cmd.Output()
 
 	if ctx.Err() == context.DeadlineExceeded {
-		glog.V(5).Infof("multipath (%s) timed out after %v", strings.Join(args, " "), multipathTimeout)
+		log.WithFields(log.Fields{"timeout": multipathTimeout, "args": strings.Join(args, " ")}).Infof("multipath timed out")
 		return string(output), nil
 	}
 
@@ -80,7 +80,7 @@ func getDevice(portal, iqn string) (string, error) {
 	}
 	source, err := filepath.EvalSymlinks(file)
 	if err != nil {
-		glog.V(5).Infof("cannot get symlink for %s", file)
+		log.Infof("cannot get symlink for %s", file)
 		return "", err
 	}
 	return source, nil
@@ -92,6 +92,7 @@ func iscsiadminDiscover(ip string) error {
 	return err
 }
 
+// iscsiadminHasSession checks to see if the session exists, may log an extraneous error if the seesion does not exist
 func iscsiadminHasSession(ip, iqn string) (bool, error) {
 	args := []string{"--mode", "session"}
 	out, err := execCommand("iscsiadm", args...)
@@ -140,6 +141,7 @@ func iscsiadminLogout(ip, iqn string) error {
 
 // read the bindings from /etc/multipath/bindings
 // separating into keep/discard sets
+// return elements map from volume name to scsi id
 func readBindings() (map[string]string, map[string]string, error) {
 
 	var bindings = map[string]string{}

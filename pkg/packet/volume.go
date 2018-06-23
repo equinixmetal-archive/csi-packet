@@ -53,5 +53,3 @@ func ReadDescription(serialized string) (VolumeDescription, error) {
 	err := json.Unmarshal([]byte(serialized), &desc)
 	return desc, err
 }
-
-type NodeVolumeManager interface{}

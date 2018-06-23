@@ -8,6 +8,7 @@ import (
 
 	"github.com/packethost/packngo"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -26,7 +27,6 @@ type PacketVolumeProvider struct {
 }
 
 var _ VolumeProvider = &PacketVolumeProvider{}
-var _ NodeVolumeManager = &PacketVolumeProvider{}
 
 func VolumeIDToName(id string) string {
 	// "3ee59355-a51a-42a8-b848-86626cc532f0" -> "volume-3ee59355"
@@ -35,7 +35,48 @@ func VolumeIDToName(id string) string {
 }
 
 func NewPacketProvider(config Config) (*PacketVolumeProvider, error) {
-	return &PacketVolumeProvider{config}, nil
+	if config.AuthToken == "" {
+		return nil, fmt.Errorf("AuthToken not specified")
+	}
+	if config.ProjectID == "" {
+		return nil, fmt.Errorf("ProjectID not specified")
+	}
+	logger := log.WithFields(log.Fields{"project_id": config.ProjectID})
+	logger.Info("Creating provider")
+
+	// if config.FacilityID == "" {
+	// 	return nil, fmt.Errorf("FacilityID not specified")
+	// }
+
+	provider := PacketVolumeProvider{config}
+	if config.FacilityID == "" {
+		facilityCode, err := GetPacketFacilityCodeMetadata()
+		if err != nil {
+			logger.Errorf("Cannot get facility code %v", err)
+			return nil, errors.Wrap(err, "cannot construct PacketVolumeProvider")
+		}
+		c := provider.client()
+		facilities, resp, err := c.Facilities.List()
+		if err != nil {
+			if resp.StatusCode == http.StatusForbidden {
+				return nil, fmt.Errorf("cannot construct PacketVolumeProvider, access denied to search facilities")
+			}
+			return nil, errors.Wrap(err, "cannot construct PacketVolumeProvider")
+		}
+		for _, facility := range facilities {
+			if facility.Code == facilityCode {
+				config.FacilityID = facility.ID
+				logger.WithField("facility_id", facility.ID).Infof("facility found")
+				break
+			}
+		}
+	}
+	if config.FacilityID == "" {
+		logger.Errorf("FacilityID not specified and cannot be found")
+		return nil, fmt.Errorf("FacilityID not specified and cannot be found")
+	}
+
+	return &provider, nil
 }
 
 // Client() returns a new client for accessing Packet's API.
@@ -47,6 +88,7 @@ func (p *PacketVolumeProvider) client() *packngo.Client {
 		DisableCompression: true,
 	}
 	client := &http.Client{Transport: tr}
+
 	// client.Transport = logging.NewTransport("Packet", client.Transport)
 	return packngo.NewClientWithAuth(ConsumerToken, p.config.AuthToken, client)
 }

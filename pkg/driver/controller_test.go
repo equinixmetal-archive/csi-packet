@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/StackPointCloud/csi-packet/pkg/packet"
-	"github.com/StackPointCloud/csi-packet/pkg/test"
+	"github.com/packethost/csi-packet/pkg/packet"
+	"github.com/packethost/csi-packet/pkg/test"
 
 	"github.com/stretchr/testify/assert"
 
@@ -47,7 +47,15 @@ func TestCreateVolume(t *testing.T) {
 	provider.EXPECT().Create(gomock.Any()).Return(&volume, &resp, nil)
 
 	controller := NewPacketControllerServer(provider)
-	volumeRequest := csi.CreateVolumeRequest{}
+	volumeRequest := csi.CreateVolumeRequest{
+		VolumeCapabilities: []*csi.VolumeCapability{
+			&csi.VolumeCapability{
+				AccessMode: &csi.VolumeCapability_AccessMode{
+					Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+				},
+			},
+		},
+	}
 	volumeRequest.Name = csiVolumeName
 	volumeRequest.CapacityRange = &csi.CapacityRange{
 		RequiredBytes: 10 * 1024 * 1024 * 1024,
@@ -102,7 +110,7 @@ func runTestCreateVolume(t *testing.T, description string, volumeRequest csi.Cre
 	controller := NewPacketControllerServer(provider)
 
 	csiResp, err := controller.CreateVolume(context.TODO(), &volumeRequest)
-	assert.Nil(t, err)
+	assert.Nil(t, err, description)
 	assert.Equal(t, providerVolume.ID, csiResp.GetVolume().Id, description)
 	assert.Equal(t, int64(providerVolume.Size)*packet.GB, csiResp.GetVolume().GetCapacityBytes(), description)
 }
@@ -124,6 +132,13 @@ func TestCreateVolumes(t *testing.T) {
 				CapacityRange: &csi.CapacityRange{
 					RequiredBytes: 10 * 1024 * 1024 * 1024,
 					LimitBytes:    173 * 1024 * 1024 * 1024,
+				},
+				VolumeCapabilities: []*csi.VolumeCapability{
+					&csi.VolumeCapability{
+						AccessMode: &csi.VolumeCapability_AccessMode{
+							Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+						},
+					},
 				},
 			},
 			providerRequest: packngo.VolumeCreateRequest{
@@ -148,6 +163,13 @@ func TestCreateVolumes(t *testing.T) {
 					RequiredBytes: 1 * 1024 * 1024,
 					LimitBytes:    15000 * 1024 * 1024 * 1024,
 				},
+				VolumeCapabilities: []*csi.VolumeCapability{
+					&csi.VolumeCapability{
+						AccessMode: &csi.VolumeCapability_AccessMode{
+							Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+						},
+					},
+				},
 			},
 			providerRequest: packngo.VolumeCreateRequest{
 				BillingCycle: packet.BillingHourly,
@@ -171,6 +193,13 @@ func TestCreateVolumes(t *testing.T) {
 					RequiredBytes: 1 * 1024 * 1024,
 					LimitBytes:    1 * 1024 * 1024,
 				},
+				VolumeCapabilities: []*csi.VolumeCapability{
+					&csi.VolumeCapability{
+						AccessMode: &csi.VolumeCapability_AccessMode{
+							Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+						},
+					},
+				},
 			},
 			providerRequest: packngo.VolumeCreateRequest{
 				BillingCycle: packet.BillingHourly,
@@ -191,6 +220,13 @@ func TestCreateVolumes(t *testing.T) {
 			volumeRequest: csi.CreateVolumeRequest{
 				Name:       "pv-pUk6DzHQF3cGMfLCRnXSpDJ2HpzhefKI",
 				Parameters: map[string]string{"plan": "performance"},
+				VolumeCapabilities: []*csi.VolumeCapability{
+					&csi.VolumeCapability{
+						AccessMode: &csi.VolumeCapability_AccessMode{
+							Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+						},
+					},
+				},
 			},
 			providerRequest: packngo.VolumeCreateRequest{
 				BillingCycle: packet.BillingHourly,
@@ -221,10 +257,14 @@ func TestIdempotentCreateVolume(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	provider := test.NewMockVolumeProvider(mockCtrl)
-	volume := packngo.Volume{
+	volumeAlreadyExisting := packngo.Volume{
 		Size:        packet.DefaultVolumeSizeGb,
 		ID:          providerVolumeID,
 		Description: packet.NewVolumeDescription(csiVolumeName).String(),
+		Plan: &packngo.Plan{
+			Name: packet.VolumePlanStandard,
+			ID:   packet.VolumePlanStandardID,
+		},
 	}
 	resp := packngo.Response{
 		&http.Response{
@@ -232,15 +272,30 @@ func TestIdempotentCreateVolume(t *testing.T) {
 		},
 		packngo.Rate{},
 	}
-	provider.EXPECT().ListVolumes().Return([]packngo.Volume{volume}, &resp, nil)
+	provider.EXPECT().ListVolumes().Return([]packngo.Volume{volumeAlreadyExisting}, &resp, nil)
 
 	controller := NewPacketControllerServer(provider)
-	volumeRequest := csi.CreateVolumeRequest{}
-	volumeRequest.Name = csiVolumeName
+	volumeRequest := csi.CreateVolumeRequest{
+		Name: csiVolumeName,
+		CapacityRange: &csi.CapacityRange{
+			RequiredBytes: packet.DefaultVolumeSizeGb * 1024 * 1024 * 1024,
+			LimitBytes:    packet.DefaultVolumeSizeGb * 1024 * 1024 * 1024,
+		},
+		VolumeCapabilities: []*csi.VolumeCapability{
+			&csi.VolumeCapability{
+				AccessMode: &csi.VolumeCapability_AccessMode{
+					Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+				},
+			},
+		},
+		Parameters: map[string]string{
+			"plan": packet.VolumePlanStandard,
+		},
+	}
 
 	csiResp, err := controller.CreateVolume(context.TODO(), &volumeRequest)
 	assert.Nil(t, err)
-	assert.Equal(t, providerVolumeID, csiResp.GetVolume().Id)
+	assert.Equal(t, volumeAlreadyExisting.ID, csiResp.GetVolume().Id)
 }
 
 func TestListVolumes(t *testing.T) {

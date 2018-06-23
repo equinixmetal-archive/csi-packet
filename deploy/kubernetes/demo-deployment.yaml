@@ -41,6 +41,8 @@ spec:
       labels:
         run: nginx
     spec:
+      # nodeSelector:
+      #   kubernetes.io/hostname: "10.88.52.141"
       containers:
       - image: nginx
         name: nginx

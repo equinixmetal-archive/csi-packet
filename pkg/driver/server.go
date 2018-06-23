@@ -23,7 +23,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/golang/glog"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
@@ -41,13 +41,17 @@ func ParseEndpoint(ep string) (string, string, error) {
 }
 
 func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	glog.V(3).Infof("GRPC call: %s", info.FullMethod)
-	glog.V(5).Infof("GRPC request: %+v", req)
+
+	logger := log.WithFields(log.Fields{
+		"GRPC.call":    info.FullMethod,
+		"GRPC.request": fmt.Sprintf("%+v", req),
+	})
+
 	resp, err := handler(ctx, req)
 	if err != nil {
-		glog.Errorf("GRPC error: %v", err)
+		logger.Errorf("GRPC error: %v", err)
 	} else {
-		glog.V(5).Infof("GRPC response: %+v", resp)
+		logger.Infof("GRPC response: %+v", resp)
 	}
 	return resp, err
 }
@@ -99,19 +103,19 @@ func (s *nonBlockingGRPCServer) serve(endpoint string, ids csi.IdentityServer, c
 
 	proto, addr, err := ParseEndpoint(endpoint)
 	if err != nil {
-		glog.Fatal(err.Error())
+		log.Fatal(err.Error())
 	}
 
 	if proto == "unix" {
 		addr = "/" + addr
 		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
-			glog.Fatalf("Failed to remove %s, error: %s", addr, err.Error())
+			log.Fatalf("Failed to remove %s, error: %s", addr, err.Error())
 		}
 	}
 
 	listener, err := net.Listen(proto, addr)
 	if err != nil {
-		glog.Fatalf("Failed to listen: %v", err)
+		log.Fatalf("Failed to listen: %v", err)
 	}
 
 	opts := []grpc.ServerOption{
@@ -130,7 +134,12 @@ func (s *nonBlockingGRPCServer) serve(endpoint string, ids csi.IdentityServer, c
 		csi.RegisterNodeServer(server, ns)
 	}
 
-	glog.Infof("Listening for connections on address: %#v", listener.Addr())
+	logger := log.WithFields(log.Fields{
+		"proto":   proto,
+		"address": addr,
+	})
+
+	logger.Infof("Listening for connections")
 
 	server.Serve(listener)
 	s.wg.Done()

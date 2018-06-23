@@ -1,9 +1,9 @@
 package driver
 
 import (
-	"github.com/StackPointCloud/csi-packet/pkg/version"
 	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
-	"github.com/golang/glog"
+	"github.com/packethost/csi-packet/pkg/version"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -20,7 +20,7 @@ func NewPacketIdentityServer(driver *PacketDriver) *PacketIdentityServer {
 }
 
 func (packetIdentity *PacketIdentityServer) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
-	glog.V(5).Infof("Using default GetPluginInfo")
+	log.Infof("PacketIdentityServer.GetPluginInfo called")
 
 	if packetIdentity.Driver.name == "" {
 		return nil, status.Error(codes.Unavailable, "Driver name not configured")
@@ -33,7 +33,7 @@ func (packetIdentity *PacketIdentityServer) GetPluginInfo(ctx context.Context, r
 }
 
 func (packetIdentity *PacketIdentityServer) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
-	glog.V(5).Infof("Using default GetPluginCapabilities")
+	log.Infof("PacketIdentityServer.GetPluginCapabilities called")
 	return &csi.GetPluginCapabilitiesResponse{
 		Capabilities: []*csi.PluginCapability{
 			&csi.PluginCapability{
@@ -48,6 +48,6 @@ func (packetIdentity *PacketIdentityServer) GetPluginCapabilities(ctx context.Co
 }
 
 func (packetIdentity *PacketIdentityServer) Probe(ctx context.Context, req *csi.ProbeRequest) (*csi.ProbeResponse, error) {
-	glog.V(5).Infof("Probe called with args: %#v", req)
+	log.Infof("PacketIdentityServer.Probe called with args: %#v", req)
 	return &csi.ProbeResponse{}, nil
 }

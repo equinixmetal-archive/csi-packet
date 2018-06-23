@@ -16,7 +16,7 @@
 BIN := csi-packet-driver
 
 # This repo's root import path (under GOPATH).
-PKG := github.com/StackPointCloud/csi-packet
+PKG := github.com/packethost/csi-packet
 
 # Where to push the docker image.
 REGISTRY ?= gcr.io/stackpoint-public
@@ -84,7 +84,8 @@ bin/$(ARCH)/$(BIN): build-dirs
 	    -ti                                                                 \
 	    --rm                                                                \
 	    -u $$(id -u):$$(id -g)                                              \
-	    -v "$$(pwd)/.go:/go"                                                \
+	    -v "$$(pwd)/.cache:/.cache"                                         \
+		-v "$$(pwd)/.go:/go"                                                \
 	    -v "$$(pwd):/go/src/$(PKG)"                                         \
 	    -v "$$(pwd)/bin/$(ARCH):/go/bin"                                    \
 	    -v "$$(pwd)/bin/$(ARCH):/go/bin/$$(go env GOOS)_$(ARCH)"            \
@@ -131,12 +132,7 @@ container-name:
 
 push: .push-$(DOTFILE_IMAGE) push-name
 .push-$(DOTFILE_IMAGE): .container-$(DOTFILE_IMAGE)
-ifeq ($(findstring gcr.io,$(REGISTRY)),gcr.io)
-	@gcloud docker -- push $(IMAGE):$(VERSION)
-else
 	@docker push $(IMAGE):$(VERSION)
-endif
-	@docker images -q $(IMAGE):$(VERSION) > $@
 
 push-name:
 	@echo "pushed: $(IMAGE):$(VERSION)"
