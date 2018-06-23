@@ -39,7 +39,7 @@ spec:
           image: quay.io/k8scsi/csi-provisioner:v0.2.0
           args:
             - "--v=5"
-            - "--provisioner=csi-packet"
+            - "--provisioner=com.packet.csi"
             - "--csi-address=$(ADDRESS)"
           env:
             - name: ADDRESS
@@ -61,9 +61,8 @@ spec:
               mountPath: /csi
         - name: packet-driver
           imagePullPolicy: Always
-          image: gcr.io/stackpoint-public/csi-packet-driver:0.0.2
+          image: gcr.io/stackpoint-public/csi-packet-driver:df97e98-dirty
           args:
-            - "--v=5"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
             - "--config=/etc/cloud-sa/cloud-sa.json"

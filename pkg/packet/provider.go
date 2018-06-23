@@ -26,7 +26,6 @@ type PacketVolumeProvider struct {
 }
 
 var _ VolumeProvider = &PacketVolumeProvider{}
-var _ NodeVolumeManager = &PacketVolumeProvider{}
 
 func VolumeIDToName(id string) string {
 	// "3ee59355-a51a-42a8-b848-86626cc532f0" -> "volume-3ee59355"
@@ -35,6 +34,15 @@ func VolumeIDToName(id string) string {
 }
 
 func NewPacketProvider(config Config) (*PacketVolumeProvider, error) {
+	if config.AuthToken == "" {
+		return nil, fmt.Errorf("AuthToken not specified")
+	}
+	if config.ProjectID == "" {
+		return nil, fmt.Errorf("ProjectID not specified")
+	}
+	if config.FacilityID == "" {
+		return nil, fmt.Errorf("FacilityID not specified")
+	}
 	return &PacketVolumeProvider{config}, nil
 }
 

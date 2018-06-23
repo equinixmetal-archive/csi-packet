@@ -36,9 +36,8 @@ spec:
           securityContext:
             privileged: true
           imagePullPolicy: Always
-          image: gcr.io/stackpoint-public/csi-packet-driver:0.0.2
+          image: gcr.io/stackpoint-public/csi-packet-driver:df97e98-dirty
           args:
-            - "--v=5"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
           env:
@@ -81,7 +80,7 @@ spec:
             type: Directory
         - name: plugin-dir
           hostPath:
-            path: /var/lib/kubelet/plugins/csi-packet/
+            path: /var/lib/kubelet/plugins/com.packet.csi/
             type: DirectoryOrCreate
         - name: dev
           hostPath:

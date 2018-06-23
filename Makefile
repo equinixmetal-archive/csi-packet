@@ -84,7 +84,8 @@ bin/$(ARCH)/$(BIN): build-dirs
 	    -ti                                                                 \
 	    --rm                                                                \
 	    -u $$(id -u):$$(id -g)                                              \
-	    -v "$$(pwd)/.go:/go"                                                \
+	    -v "$$(pwd)/.cache:/.cache"                                         \
+		-v "$$(pwd)/.go:/go"                                                \
 	    -v "$$(pwd):/go/src/$(PKG)"                                         \
 	    -v "$$(pwd)/bin/$(ARCH):/go/bin"                                    \
 	    -v "$$(pwd)/bin/$(ARCH):/go/bin/$$(go env GOOS)_$(ARCH)"            \

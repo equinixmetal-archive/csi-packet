@@ -22,7 +22,7 @@ spec:
     matchLabels:
       app: stateful-nginx 
   serviceName: "stateful-nginx"
-  replicas: 3 
+  replicas: 2
   template:
     metadata:
       labels:
@@ -43,7 +43,6 @@ spec:
       name: www
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: csi-packet-performance
       resources:
         requests:
-          storage: 1Gi
+          storage: 10Gi

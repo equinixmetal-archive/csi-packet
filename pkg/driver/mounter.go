@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/golang/glog"
+	log "github.com/sirupsen/logrus"
 )
 
 // Methods to format and mount
@@ -17,13 +17,13 @@ func bindmountFs(src, target string) error {
 		if os.IsNotExist(err) {
 			os.MkdirAll(target, 0755)
 		} else {
-			glog.V(5).Infof("stat %s, %v", target, err)
+			log.Infof("stat %s, %v", target, err)
 			return err
 		}
 	}
 	_, err := os.Stat(target)
 	if err != nil {
-		glog.V(5).Infof("stat %s, %v", target, err)
+		log.Infof("stat %s, %v", target, err)
 		return err
 	}
 	args := []string{"--bind", src, target}
@@ -34,6 +34,9 @@ func bindmountFs(src, target string) error {
 func unmountFs(path string) error {
 	args := []string{path}
 	_, err := execCommand("umount", args...)
+	// if err != nil {
+	// 	execCommand("rmdir", args...)
+	// }
 	return err
 }
 

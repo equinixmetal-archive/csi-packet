@@ -22,6 +22,7 @@ import (
 	"os"
 
 	"github.com/StackPointCloud/csi-packet/pkg/driver"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -33,6 +34,14 @@ var (
 
 func init() {
 	flag.Set("logtostderr", "true")
+
+	// Log as JSON instead of the default text.
+	log.SetFormatter(&log.JSONFormatter{})
+
+	// Output to stdout instead of the default stderr
+	log.SetOutput(os.Stdout)
+
+	log.SetLevel(log.DebugLevel)
 }
 
 func main() {

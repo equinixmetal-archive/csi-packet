@@ -10,6 +10,7 @@ import (
 
 	"github.com/StackPointCloud/csi-packet/pkg/packet"
 	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -29,6 +30,9 @@ func NewPacketControllerServer(provider packet.VolumeProvider) *PacketController
 
 func (controller *PacketControllerServer) CreateVolume(ctx context.Context, in *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 
+	logger := log.WithFields(log.Fields{"volume_name": in.Name})
+	logger.Info("CreateVolume called")
+
 	// check for pre-existing volume
 	volumes, httpResponse, err := controller.Provider.ListVolumes()
 	if err != nil {
@@ -41,6 +45,7 @@ func (controller *PacketControllerServer) CreateVolume(ctx context.Context, in *
 
 		description, err := packet.ReadDescription(volume.Description)
 		if err == nil && description.Name == in.Name {
+			logger.Infof("Volume already exists with id %s", volume.ID)
 			out := csi.CreateVolumeResponse{
 				Volume: &csi.Volume{
 					CapacityBytes: int64(volume.Size) * packet.GB,
@@ -65,6 +70,7 @@ func (controller *PacketControllerServer) CreateVolume(ctx context.Context, in *
 		planID = packet.VolumePlanStandardID
 
 	}
+	logger.Infof("Volume plan is %s -> %s", volumePlanRequest, planID)
 
 	// size request:
 	//   limit if specified
@@ -94,6 +100,8 @@ func (controller *PacketControllerServer) CreateVolume(ctx context.Context, in *
 	if sizeRequestGB < packet.MinVolumeSizeGb {
 		sizeRequestGB = packet.MinVolumeSizeGb
 	}
+
+	logger.Infof("Volume size request is %d", sizeRequestGB)
 
 	description := packet.NewVolumeDescription(in.Name)
 
@@ -324,4 +332,16 @@ func (controller *PacketControllerServer) ControllerGetCapabilities(ctx context.
 	}
 
 	return resp, nil
+}
+
+func (controller *PacketControllerServer) CreateSnapshot(context.Context, *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "")
+}
+
+func (controller *PacketControllerServer) DeleteSnapshot(context.Context, *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "")
+}
+
+func (controller *PacketControllerServer) ListSnapshots(context.Context, *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "")
 }
