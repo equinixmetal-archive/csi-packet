@@ -114,6 +114,9 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 	// this is the full packet UUID, not the abbreviated name...
 	// volumeID := in.VolumeId
 	volumeName := in.PublishInfo["VolumeName"]
+	if volumeName == "" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("VolumeName unspecified for NodeStageVolume"))
+	}
 
 	volumeMetaData, err := getPacketVolumeMetadata(volumeName)
 	if err != nil {
@@ -221,6 +224,13 @@ func (nodeServer *PacketNodeServer) NodeUnstageVolume(ctx context.Context, in *c
 
 	nodeServer.Driver.Logger.Info("NodeUnstageVolume called")
 
+	if in.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("VolumeId unspecified for NodeUnpublishVolume"))
+	}
+	if in.StagingTargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("StagingTargetPath unspecified for NodeUnpublishVolume"))
+	}
+
 	volumeID := in.VolumeId
 	volumeName := packet.VolumeIDToName(volumeID)
 
@@ -280,6 +290,17 @@ func (nodeServer *PacketNodeServer) NodeUnstageVolume(ctx context.Context, in *c
 func (nodeServer *PacketNodeServer) NodePublishVolume(ctx context.Context, in *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 
 	nodeServer.Driver.Logger.Info("NodePublishVolume called")
+
+	if in.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("VolumeId unspecified for NodeStageVolume"))
+	}
+	if in.TargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("TargetPath unspecified for NodeStageVolume"))
+	}
+	if in.StagingTargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("StagingTargetPath unspecified for NodeStageVolume"))
+	}
+
 	logger := nodeServer.Driver.Logger.WithFields(logrus.Fields{
 		"volume_id":           in.VolumeId,
 		"target_path":         in.TargetPath,
@@ -299,6 +320,14 @@ func (nodeServer *PacketNodeServer) NodePublishVolume(ctx context.Context, in *c
 func (nodeServer *PacketNodeServer) NodeUnpublishVolume(ctx context.Context, in *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 
 	nodeServer.Driver.Logger.Info("NodeUnpublishVolume called")
+
+	if in.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("VolumeId unspecified for NodeUnpublishVolume"))
+	}
+	if in.TargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("TargetPath unspecified for NodeUnpublishVolume"))
+	}
+
 	logger := nodeServer.Driver.Logger.WithFields(logrus.Fields{
 		"volume_id":   in.VolumeId,
 		"target_path": in.TargetPath,

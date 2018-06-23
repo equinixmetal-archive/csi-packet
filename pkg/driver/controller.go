@@ -28,57 +28,13 @@ func NewPacketControllerServer(provider packet.VolumeProvider) *PacketController
 	}
 }
 
-func (controller *PacketControllerServer) CreateVolume(ctx context.Context, in *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
-
-	logger := log.WithFields(log.Fields{"volume_name": in.Name})
-	logger.Info("CreateVolume called")
-
-	// check for pre-existing volume
-	volumes, httpResponse, err := controller.Provider.ListVolumes()
-	if err != nil {
-		return nil, errors.Wrap(err, httpResponse.Status)
-	}
-	if httpResponse.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("bad status from list volumes, %s", httpResponse.Status)
-	}
-	for _, volume := range volumes {
-
-		description, err := packet.ReadDescription(volume.Description)
-		if err == nil && description.Name == in.Name {
-			logger.Infof("Volume already exists with id %s", volume.ID)
-			out := csi.CreateVolumeResponse{
-				Volume: &csi.Volume{
-					CapacityBytes: int64(volume.Size) * packet.GB,
-					Id:            volume.ID,
-					Attributes:    nil,
-				},
-			}
-			return &out, nil
-		}
-
-	}
-
-	var planID string
-
-	volumePlanRequest := in.GetParameters()["plan"]
-	switch volumePlanRequest {
-	case packet.VolumePlanPerformance:
-		planID = packet.VolumePlanPerformanceID
-	case packet.VolumePlanStandard:
-		planID = packet.VolumePlanStandardID
-	default:
-		planID = packet.VolumePlanStandardID
-
-	}
-	logger.Infof("Volume plan is %s -> %s", volumePlanRequest, planID)
-
+func getSizeRequest(capacityRange *csi.CapacityRange) int {
 	// size request:
 	//   limit if specified
 	//   required otherwise
 	//   within restrictions of max, min
 	//   default otherwise
 	var sizeRequestGB int
-	capacityRange := in.CapacityRange
 	if capacityRange == nil {
 		sizeRequestGB = packet.DefaultVolumeSizeGb
 	} else {
@@ -100,8 +56,74 @@ func (controller *PacketControllerServer) CreateVolume(ctx context.Context, in *
 	if sizeRequestGB < packet.MinVolumeSizeGb {
 		sizeRequestGB = packet.MinVolumeSizeGb
 	}
+	return sizeRequestGB
+}
 
-	logger.Infof("Volume size request is %d", sizeRequestGB)
+func getPlanID(parameters map[string]string) string {
+
+	var planID string
+
+	volumePlanRequest := parameters["plan"]
+	switch volumePlanRequest {
+	case packet.VolumePlanPerformance:
+		planID = packet.VolumePlanPerformanceID
+	case packet.VolumePlanStandard:
+		planID = packet.VolumePlanStandardID
+	default:
+		planID = packet.VolumePlanStandardID
+
+	}
+	return planID
+}
+
+func (controller *PacketControllerServer) CreateVolume(ctx context.Context, in *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+
+	if controller == nil || controller.Provider == nil {
+		return nil, status.Error(codes.Internal, fmt.Sprintf("controller not configured"))
+	}
+	logger := log.WithFields(log.Fields{"volume_name": in.Name})
+	logger.Info("CreateVolume called")
+
+	if in.Name == "" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("Name unspecified for CreateVolume"))
+	}
+	if in.VolumeCapabilities == nil {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("VolumeCapabilities unspecified for CreateVolume"))
+	}
+
+	sizeRequestGB := getSizeRequest(in.CapacityRange)
+	planID := getPlanID(in.Parameters)
+
+	logger.WithFields(log.Fields{"planID": planID, "sizeRequestGB": sizeRequestGB}).Infof("Volume requested")
+
+	// check for pre-existing volume
+	volumes, httpResponse, err := controller.Provider.ListVolumes()
+	if err != nil {
+		return nil, errors.Wrap(err, httpResponse.Status)
+	}
+	if httpResponse.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("bad status from list volumes, %s", httpResponse.Status)
+	}
+	for _, volume := range volumes {
+
+		description, err := packet.ReadDescription(volume.Description)
+		if err == nil && description.Name == in.Name {
+			logger.Infof("Volume already exists with id %s", volume.ID)
+
+			if volume.Size != sizeRequestGB || volume.Plan.ID != planID {
+				return nil, status.Error(codes.AlreadyExists, fmt.Sprintf("mismatch with existing volume %s, size %d, plan %s", in.Name, volume.Size, volume.Plan.Name))
+			}
+
+			out := csi.CreateVolumeResponse{
+				Volume: &csi.Volume{
+					CapacityBytes: int64(volume.Size) * packet.GB,
+					Id:            volume.ID,
+					Attributes:    nil,
+				},
+			}
+			return &out, nil
+		}
+	}
 
 	description := packet.NewVolumeDescription(in.Name)
 
@@ -136,21 +158,49 @@ func (controller *PacketControllerServer) CreateVolume(ctx context.Context, in *
 }
 
 func (controller *PacketControllerServer) DeleteVolume(ctx context.Context, in *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
+	if controller == nil || controller.Provider == nil {
+		return nil, status.Error(codes.Internal, fmt.Sprintf("controller not configured"))
+	}
+	logger := log.WithFields(log.Fields{"volume_id": in.VolumeId})
+	logger.Info("DeleteVolume called")
+
+	if in.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("VolumeId unspecified for DeleteVolume"))
+	}
 
 	httpResponse, err := controller.Provider.Delete(in.GetVolumeId())
 	if err != nil {
-		return nil, err
+		if httpResponse.StatusCode == http.StatusUnprocessableEntity {
+			return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("delete should retry, %v", err))
+		}
+		return nil, status.Error(codes.Unknown, fmt.Sprintf("bad status from delete volumes, %s", httpResponse.Status))
 	}
-	if httpResponse.StatusCode != http.StatusOK && httpResponse.StatusCode != http.StatusNoContent && httpResponse.StatusCode != http.StatusNotFound {
-		return nil, errors.Errorf("bad status from delete volumes, %s", httpResponse.Status)
+	switch httpResponse.StatusCode {
+	case http.StatusOK, http.StatusNoContent, http.StatusNotFound:
+		return &csi.DeleteVolumeResponse{}, nil
+	case http.StatusUnprocessableEntity:
+		return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("code %s indicates retry condition", httpResponse.StatusCode))
 	}
-	return &csi.DeleteVolumeResponse{}, nil
+	return nil, status.Error(codes.Unknown, fmt.Sprintf("bad status from delete volumes, %s", httpResponse.Status))
 }
 
 // ControllerPublishVolume attaches a volume to a node
 func (controller *PacketControllerServer) ControllerPublishVolume(ctx context.Context, in *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
-	csiNodeID := in.GetNodeId()
-	volumeID := in.GetVolumeId()
+	if controller == nil || controller.Provider == nil {
+		return nil, status.Error(codes.Internal, fmt.Sprintf("controller not configured"))
+	}
+	if in.NodeId == "" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("NodeId unspecified for ControllerPublishVolume"))
+	}
+	if in.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("VolumeId unspecified for ControllerPublishVolume"))
+	}
+	if in.VolumeCapability == nil {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("VolumeCapability unspecified for ControllerPublishVolume"))
+	}
+
+	csiNodeID := in.NodeId
+	volumeID := in.VolumeId
 
 	volume, httpResponse, err := controller.Provider.Get(volumeID)
 	if err != nil {
@@ -204,6 +254,16 @@ func (controller *PacketControllerServer) ControllerPublishVolume(ctx context.Co
 
 // ControllerPublishVolume detaches a volume from a node
 func (controller *PacketControllerServer) ControllerUnpublishVolume(ctx context.Context, in *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
+	if controller == nil || controller.Provider == nil {
+		return nil, status.Error(codes.Internal, fmt.Sprintf("controller not configured"))
+	}
+	if in.NodeId == "" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("NodeId unspecified for ControllerUnpublishVolume"))
+	}
+	if in.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("VolumeId unspecified for ControllerUnpublishVolume"))
+	}
+
 	nodeID := in.GetNodeId()
 	volumeID := in.GetVolumeId()
 
@@ -244,6 +304,16 @@ func (controller *PacketControllerServer) ControllerUnpublishVolume(ctx context.
 
 func (controller *PacketControllerServer) ValidateVolumeCapabilities(ctx context.Context, in *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
 
+	if controller == nil || controller.Provider == nil {
+		return nil, status.Error(codes.Internal, fmt.Sprintf("controller not configured"))
+	}
+
+	if in.VolumeCapabilities == nil {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("VolumeCapability unspecified for ValidateVolumeCapabilities"))
+	}
+	if in.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("VolumeId unspecified for ValidateVolumeCapabilities"))
+	}
 	// if capabilities depended on the volume, we would retrieve it here
 	// testVolumeID := in.volumeID
 	// testVolume := controller.Provider.Get(testVolumeID)
@@ -276,6 +346,9 @@ func (controller *PacketControllerServer) ValidateVolumeCapabilities(ctx context
 }
 
 func (controller *PacketControllerServer) ListVolumes(ctx context.Context, in *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
+	if controller == nil || controller.Provider == nil {
+		return nil, status.Error(codes.Internal, fmt.Sprintf("controller not configured"))
+	}
 
 	volumes, httpResponse, err := controller.Provider.ListVolumes()
 	if err != nil {

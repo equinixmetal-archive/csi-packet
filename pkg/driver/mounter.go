@@ -42,6 +42,7 @@ func unmountFs(path string) error {
 
 func mountMappedDevice(device, target string) error {
 	devicePath := filepath.Join("/dev/mapper/", device)
+	os.MkdirAll(target, os.ModeDir)
 	args := []string{"-t", "ext4", "--source", devicePath, "--target", target}
 	_, err := execCommand("mount", args...)
 	return err
