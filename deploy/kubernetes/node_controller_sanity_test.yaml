@@ -1,0 +1,118 @@
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: csi-node
+spec:
+  selector:
+    matchLabels:
+      app: csi-packet-driver
+  template:
+    metadata:
+      labels:
+        app: csi-packet-driver
+    spec:
+      serviceAccount: csi-node-sa
+      hostNetwork: true
+      containers:
+        - name: csi-driver-registrar
+          imagePullPolicy: Always
+          image: quay.io/k8scsi/driver-registrar:v0.2.0
+          args:
+            - "--v=5"
+            - "--csi-address=$(ADDRESS)"
+          env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: plugin-dir
+              mountPath: /csi
+          #  - name: registrar-socket-dir
+          #    mountPath: /var/lib/csi/sockets/
+        - name: packet-driver
+          securityContext:
+            privileged: true
+          imagePullPolicy: Always
+          image: gcr.io/stackpoint-public/csi-packet-driver:d9a36de-dirty
+          args:
+            - "--endpoint=$(CSI_ENDPOINT)"
+            - "--nodeid=$(KUBE_NODE_NAME)"
+            - "--config=/etc/cloud-sa/cloud-sa.json"
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: cloud-sa-volume
+              readOnly: true
+              mountPath: "/etc/cloud-sa"
+            - name: kubelet-dir
+              mountPath: /var/lib/kubelet
+              mountPropagation: "Bidirectional"
+            - name: plugin-dir
+              mountPath: /csi
+            - name: sys-devices
+              mountPath: /sys/devices
+            - mountPath: /dev
+              name: dev
+            - mountPath: /etc
+              name: etc
+            - mountPath: /run/udev
+              name: run-udev
+            - mountPath: /var/lib/iscsi
+              name: var-lib-iscsi
+            - name: lib-modules
+              mountPath: /lib/modules
+            - mountPath: /usr/share/ca-certificates/
+              name: ca-certs-alternative
+              readOnly: true
+      volumes:
+        # TODO(dependency): this will work when kublet registrar functionality exists
+        #- name: registrar-socket-dir
+        #  hostPath:
+        #    path: /var/lib/kubelet/device-plugins/
+        #    type: DirectoryOrCreate
+        - name: cloud-sa-volume
+          secret:
+            secretName: cloud-sa
+        - name: kubelet-dir
+          hostPath:
+            path: /var/lib/kubelet
+            type: Directory
+        - name: plugin-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/com.packet.csi/
+            type: DirectoryOrCreate
+        - name: dev
+          hostPath:
+            path: /dev
+            type: Directory
+        - name: etc
+          hostPath:
+            path: /etc/
+        - name: var-lib-iscsi
+          hostPath:
+            path: /var/lib/iscsi/
+            type: DirectoryOrCreate
+        - name: sys-devices
+          hostPath:
+            path: /sys/devices
+            type: Directory
+        - name: run-udev
+          hostPath:
+            path: /run/udev/
+            type: Directory
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+            type: Directory
+        - name: ca-certs-alternative
+          hostPath:
+            path: /usr/share/ca-certificates/
+            type: DirectoryOrCreate

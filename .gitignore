@@ -1,0 +1,8 @@
+_vendor*
+vendor/
+bin/
+.go/
+scratch
+.container*
+.docker*
+cloud-sa.json
