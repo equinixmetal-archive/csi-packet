@@ -87,7 +87,7 @@ spec:
             type: Directory
         - name: plugin-dir
           hostPath:
-            path: /var/lib/kubelet/plugins/com.packet.csi/
+            path: /var/lib/kubelet/plugins/net.packet.csi/
             type: DirectoryOrCreate
         - name: dev
           hostPath:

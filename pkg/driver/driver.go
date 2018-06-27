@@ -32,7 +32,7 @@ func NewPacketDriver(endpoint, nodeID, configurationPath string) (*PacketDriver,
 
 	return &PacketDriver{
 		// name https://github.com/container-storage-interface/spec/blob/master/spec.md#getplugininfo
-		name:     "com.packet.csi", // this could be configurable, but must match a plugin directory name for kubelet to use
+		name:     "net.packet.csi", // this could be configurable, but must match a plugin directory name for kubelet to use
 		nodeID:   nodeID,
 		endpoint: endpoint,
 		config:   config,

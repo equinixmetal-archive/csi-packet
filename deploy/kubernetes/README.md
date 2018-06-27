@@ -41,6 +41,6 @@ The steps are as follows
 
 1.  Install the csi-packet plugin as above into a kubernetes cluster, but use _node_controller_sanity_test.yaml_ instead of _node.yaml_.  The crucial difference is to start the driver with the packet credentials so that the csi-controller is running.
 2.  Ssh to a node, install a golang environment and build the csi-sanity binaries.
-3.  Run `./csi-sanity --ginkgo.v --csi.endpoint=/var/lib/kubelet/plugins/com.packet.csi/csi.sock`
+3.  Run `./csi-sanity --ginkgo.v --csi.endpoint=/var/lib/kubelet/plugins/net.packet.csi/csi.sock`
 
 Please report any failures to this repository.

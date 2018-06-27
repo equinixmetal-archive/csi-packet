@@ -36,10 +36,10 @@ spec:
       containers:
         - name: csi-external-provisioner
           imagePullPolicy: Always
-          image: quay.io/k8scsi/csi-provisioner:v0.2.0
+          image: quay.io/k8scsi/csi-provisioner:v0.3.0
           args:
             - "--v=5"
-            - "--provisioner=com.packet.csi"
+            - "--provisioner=net.packet.csi"
             - "--csi-address=$(ADDRESS)"
           env:
             - name: ADDRESS
@@ -49,7 +49,7 @@ spec:
               mountPath: /csi
         - name: csi-attacher
           imagePullPolicy: Always
-          image: quay.io/k8scsi/csi-attacher:v0.2.0
+          image: quay.io/k8scsi/csi-attacher:v0.3.0
           args:
             - "--v=5"
             - "--csi-address=$(ADDRESS)"
