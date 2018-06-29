@@ -24,7 +24,7 @@ const (
 func execCommand(command string, args ...string) ([]byte, error) {
 	out, err := exec.Command(command, args...).CombinedOutput()
 	if err != nil {
-		log.WithFields(log.Fields{"command": command, "args": strings.Join(args, " "), "out": string(out[:]), "error": err.Error()}).Info("Error")
+		log.WithFields(log.Fields{"command": command, "args": strings.Join(args, " "), "out": string(out[:]), "error": err.Error()}).Error("Error")
 		return nil, err
 	}
 	return out, nil
@@ -41,7 +41,7 @@ func multipath(args ...string) (string, error) {
 	output, err := cmd.Output()
 
 	if ctx.Err() == context.DeadlineExceeded {
-		log.WithFields(log.Fields{"timeout": multipathTimeout, "args": strings.Join(args, " ")}).Infof("multipath timed out")
+		log.WithFields(log.Fields{"timeout": multipathTimeout, "args": strings.Join(args, " ")}).Info("multipath timed out")
 		return string(output), nil
 	}
 
@@ -80,7 +80,7 @@ func getDevice(portal, iqn string) (string, error) {
 	}
 	source, err := filepath.EvalSymlinks(file)
 	if err != nil {
-		log.Infof("cannot get symlink for %s", file)
+		log.Errorf("cannot get symlink for %s", file)
 		return "", err
 	}
 	return source, nil

@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	GB                      int64 = 1024 * 1024 * 1024
-	MaxVolumeSizeGb               = 10000
-	DefaultVolumeSizeGb           = 100
-	MinVolumeSizeGb               = 10
+	Gibi                    int64 = 1024 * 1024 * 1024
+	MaxVolumeSizeGi               = 10000
+	DefaultVolumeSizeGi           = 100
+	MinVolumeSizeGi               = 10
 	VolumePlanStandard            = "standard"
 	VolumePlanStandardID          = "87728148-3155-4992-a730-8d1e6aca8a32"
 	VolumePlanPerformance         = "performance"

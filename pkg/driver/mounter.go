@@ -17,13 +17,13 @@ func bindmountFs(src, target string) error {
 		if os.IsNotExist(err) {
 			os.MkdirAll(target, 0755)
 		} else {
-			log.Infof("stat %s, %v", target, err)
+			log.Errorf("stat %s, %v", target, err)
 			return err
 		}
 	}
 	_, err := os.Stat(target)
 	if err != nil {
-		log.Infof("stat %s, %v", target, err)
+		log.Errorf("stat %s, %v", target, err)
 		return err
 	}
 	args := []string{"--bind", src, target}

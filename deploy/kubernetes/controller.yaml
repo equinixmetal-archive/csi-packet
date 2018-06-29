@@ -35,7 +35,7 @@ spec:
       serviceAccount: csi-controller-sa
       containers:
         - name: csi-external-provisioner
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           image: quay.io/k8scsi/csi-provisioner:v0.3.0
           args:
             - "--v=5"
@@ -48,7 +48,7 @@ spec:
             - name: socket-dir
               mountPath: /csi
         - name: csi-attacher
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           image: quay.io/k8scsi/csi-attacher:v0.3.0
           args:
             - "--v=5"

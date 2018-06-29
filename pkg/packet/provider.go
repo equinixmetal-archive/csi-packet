@@ -36,10 +36,10 @@ func VolumeIDToName(id string) string {
 
 func NewPacketProvider(config Config) (*PacketVolumeProvider, error) {
 	if config.AuthToken == "" {
-		return nil, fmt.Errorf("AuthToken not specified")
+		return nil, errors.New("AuthToken not specified")
 	}
 	if config.ProjectID == "" {
-		return nil, fmt.Errorf("ProjectID not specified")
+		return nil, errors.New("ProjectID not specified")
 	}
 	logger := log.WithFields(log.Fields{"project_id": config.ProjectID})
 	logger.Info("Creating provider")

@@ -1,6 +1,11 @@
 package packet
 
 import (
+	"net"
+
+	"github.com/packethost/packngo/metadata"
+	"github.com/pkg/errors"
+
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -29,9 +34,9 @@ type PacketCapacityMetaData struct {
 // PacketVolumeMetadata exists for parsing json metadata
 type PacketVolumeMetadata struct {
 	Name     string                 `json:"name"`
-	Ips      []string               `json:"ips"`
+	IPs      []net.IP               `json:"ips"`
 	Capacity PacketCapacityMetaData `json:"capacity"`
-	Iqn      string                 `json:"iqn"`
+	IQN      string                 `json:"iqn"`
 }
 
 // get all the metadata, extract only the parsed volume information, select the desired volume
@@ -109,4 +114,40 @@ func GetPacketFacilityCodeMetadata() (string, error) {
 		return facilityCode, nil
 	}
 	return "", fmt.Errorf("Unable to read facility code")
+}
+
+// use this when packngo serialization is fixed
+// GetPacketVolumeMetadata gets the volume metadata for a named volume
+func packngoGetPacketVolumeMetadata(volumeName string) (metadata.VolumeInfo, error) {
+	device, err := metadata.GetMetadata()
+	if err != nil {
+		return metadata.VolumeInfo{}, err
+	}
+	// logrus.Infof("device metadata: %+v", device)
+
+	var volumeMetaData = metadata.VolumeInfo{}
+
+	for _, vdata := range device.Volumes {
+		if vdata.Name == volumeName {
+			volumeMetaData = vdata
+			break
+		}
+	}
+	if volumeMetaData.Name == "" {
+		return metadata.VolumeInfo{}, errors.Errorf("volume %s not found in metadata", volumeName)
+	}
+
+	return volumeMetaData, nil
+}
+
+// use this when packngo serialization is fixed
+// GetPacketFacilityCodeMetadata returns the facility code
+func packngoGetPacketFacilityCodeMetadata() (string, error) {
+
+	device, err := metadata.GetMetadata()
+	if err != nil {
+		return "", err
+	}
+
+	return device.Facility, nil
 }

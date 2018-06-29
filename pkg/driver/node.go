@@ -1,8 +1,6 @@
 package driver
 
 import (
-	"fmt"
-
 	"github.com/packethost/csi-packet/pkg/packet"
 	"github.com/sirupsen/logrus"
 
@@ -34,28 +32,28 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 	// volumeID := in.VolumeId
 	volumeName := in.PublishInfo["VolumeName"]
 	if volumeName == "" {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("VolumeName unspecified for NodeStageVolume"))
+		return nil, status.Error(codes.InvalidArgument, "VolumeName unspecified for NodeStageVolume")
 	}
 
 	volumeMetaData, err := packet.GetPacketVolumeMetadata(volumeName)
 	if err != nil {
-		nodeServer.Driver.Logger.Infof("NodeStageVolume: %v", err)
-		return nil, status.Error(codes.Unknown, fmt.Sprintf("metadata error, %s", err.Error()))
+		nodeServer.Driver.Logger.Errorf("NodeStageVolume: %v", err)
+		return nil, status.Errorf(codes.Unknown, "metadata error, %s", err.Error())
 	}
 
-	if len(volumeMetaData.Ips) == 0 {
-		return nil, status.Error(codes.Unknown, fmt.Sprintf("volume %s has no portals", volumeName))
+	if len(volumeMetaData.IPs) == 0 {
+		return nil, status.Errorf(codes.Unknown, "volume %s has no portals", volumeName)
 	}
 
 	if in.GetVolumeCapability() == nil {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("VolumeCapability unspecified for NodeStageVolume"))
+		return nil, status.Error(codes.InvalidArgument, "VolumeCapability unspecified for NodeStageVolume")
 	}
 	mnt := in.VolumeCapability.GetMount()
 	// options := mnt.MountFlags
 
 	if mnt.FsType != "" {
 		if mnt.FsType != "ext4" {
-			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("fs type %s not supported", mnt.FsType))
+			return nil, status.Errorf(codes.InvalidArgument, "fs type %s not supported", mnt.FsType)
 		}
 	}
 
@@ -68,40 +66,40 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 	})
 
 	// discover and log in to iscsiadmin
-	for _, ip := range volumeMetaData.Ips {
-		err = iscsiadminDiscover(ip) // iscsiadm --mode discovery --type sendtargets --portal 10.144.144.226 --discover
+	for _, ip := range volumeMetaData.IPs {
+		err = iscsiadminDiscover(ip.String()) // iscsiadm --mode discovery --type sendtargets --portal 10.144.144.226 --discover
 		if err != nil {
 			logger.Infof("isciadmin discover error, %+v", err)
-			return nil, status.Error(codes.Unknown, fmt.Sprintf("isciadmin discover error, %+v", err))
+			return nil, status.Errorf(codes.Unknown, "isciadmin discover error, %+v", err)
 		}
-		err = iscsiadminLogin(ip, volumeMetaData.Iqn)
+		err = iscsiadminLogin(ip.String(), volumeMetaData.IQN)
 		if err != nil {
 			logger.Infof("isciadmin login error, %+v", err)
-			return nil, status.Error(codes.Unknown, fmt.Sprintf("isciadmin login error, %+v", err))
+			return nil, status.Errorf(codes.Unknown, "isciadmin login error, %+v", err)
 		}
 	}
 
 	// configure multimap
-	devicePath, err := getDevice(volumeMetaData.Ips[0], volumeMetaData.Iqn)
+	devicePath, err := getDevice(volumeMetaData.IPs[0].String(), volumeMetaData.IQN)
 	if err != nil {
 		logger.Infof("devicePath error, %+v", err)
-		return nil, status.Error(codes.Unknown, fmt.Sprintf("devicePath error, %+v", err))
+		return nil, status.Errorf(codes.Unknown, "devicePath error, %+v", err)
 	}
 	scsiID, err := getScsiID(devicePath)
 	if err != nil {
 		logger.Infof("scsiID error, path %s, %+v", devicePath, err)
-		return nil, status.Error(codes.Unknown, fmt.Sprintf("scsiIDerror, %+v", err))
+		return nil, status.Errorf(codes.Unknown, "scsiIDerror, %+v", err)
 	}
 	bindings, discards, err := readBindings()
 	if err != nil {
 		logger.Infof("readBindings error, %+v", err)
-		return nil, status.Error(codes.Unknown, fmt.Sprintf("readBindings error, %+v", err))
+		return nil, status.Errorf(codes.Unknown, "readBindings error, %+v", err)
 	}
 	bindings[volumeName] = scsiID
 	err = writeBindings(bindings)
 	if err != nil {
 		logger.Infof("writeBindings error, %+v", err)
-		return nil, status.Error(codes.Unknown, fmt.Sprintf("writeBindings error, %+v", err))
+		return nil, status.Errorf(codes.Unknown, "writeBindings error, %+v", err)
 	}
 	for mappingName, _ := range discards {
 		multipath("-f", mappingName)
@@ -117,13 +115,13 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 	blockInfo, err := getMappedDevice(volumeName)
 	if err != nil {
 		logger.Infof("getMappedDevice error, %+v", err)
-		return nil, status.Error(codes.Unknown, fmt.Sprintf("getMappedDevice error, %+v", err))
+		return nil, status.Errorf(codes.Unknown, "getMappedDevice error, %+v", err)
 	}
 	if blockInfo.FsType == "" {
 		err = formatMappedDevice(volumeName)
 		if err != nil {
 			logger.Infof("formatMappedDevice error, %+v", err)
-			return nil, status.Error(codes.Unknown, fmt.Sprintf("formatMappedDevice error, %+v", err))
+			return nil, status.Errorf(codes.Unknown, "formatMappedDevice error, %+v", err)
 		}
 	}
 
@@ -131,7 +129,7 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 	err = mountMappedDevice(volumeName, in.StagingTargetPath)
 	if err != nil {
 		logger.Infof("mountMappedDevice error, %v", err)
-		return nil, status.Error(codes.Unknown, fmt.Sprintf("mountMappedDevice error, %+v", err))
+		return nil, status.Errorf(codes.Unknown, "mountMappedDevice error, %+v", err)
 	}
 
 	logger.Infof("NodeStageVolume complete")
@@ -144,10 +142,10 @@ func (nodeServer *PacketNodeServer) NodeUnstageVolume(ctx context.Context, in *c
 	nodeServer.Driver.Logger.Info("NodeUnstageVolume called")
 
 	if in.VolumeId == "" {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("VolumeId unspecified for NodeUnpublishVolume"))
+		return nil, status.Error(codes.InvalidArgument, "VolumeId unspecified for NodeUnpublishVolume")
 	}
 	if in.StagingTargetPath == "" {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("StagingTargetPath unspecified for NodeUnpublishVolume"))
+		return nil, status.Error(codes.InvalidArgument, "StagingTargetPath unspecified for NodeUnpublishVolume")
 	}
 
 	volumeID := in.VolumeId
@@ -159,32 +157,31 @@ func (nodeServer *PacketNodeServer) NodeUnstageVolume(ctx context.Context, in *c
 		"staging_target_path": in.StagingTargetPath,
 		"method":              "NodeUnstageVolume",
 	})
-	// failureResponse := &csi.NodeUnstageVolumeResponse{} but this is empty ...
 
 	err := unmountFs(in.StagingTargetPath)
 	if err != nil {
-		return nil, status.Error(codes.Unknown, fmt.Sprintf("unmounting error, %s", err.Error()))
+		return nil, status.Errorf(codes.Unknown, "unmounting error, %v", err)
 	}
 	logger.Infof("Unmounted staging target")
 
 	volumeMetaData, err := packet.GetPacketVolumeMetadata(volumeName)
 	if err != nil {
-		return nil, status.Error(codes.Unknown, fmt.Sprintf("metadata access error, %s ", err.Error()))
+		return nil, status.Errorf(codes.Unknown, "metadata access error, %v ", err)
 	}
 
-	if len(volumeMetaData.Ips) == 0 {
-		return nil, status.Error(codes.Unknown, fmt.Sprintf("volume %s not has no portals", volumeName))
+	if len(volumeMetaData.IPs) == 0 {
+		return nil, status.Errorf(codes.Unknown, "volume %s has no portals", volumeName)
 	}
 
 	// remove multipath
 	bindings, discards, err := readBindings()
 	if err != nil {
-		return nil, status.Error(codes.Unknown, fmt.Sprintf("multipath error, %s", err.Error()))
+		return nil, status.Errorf(codes.Unknown, "multipath error, %v", err)
 	}
 	delete(bindings, volumeName)
 	err = writeBindings(bindings)
 	if err != nil {
-		return nil, status.Error(codes.Unknown, fmt.Sprintf("multipath error, %s", err.Error()))
+		return nil, status.Errorf(codes.Unknown, "multipath error, %v", err)
 	}
 	logger.Info("multipath flush")
 	for mappingName, _ := range discards {
@@ -192,11 +189,11 @@ func (nodeServer *PacketNodeServer) NodeUnstageVolume(ctx context.Context, in *c
 	}
 	multipath("-f", volumeName)
 
-	for _, ip := range volumeMetaData.Ips {
-		logger.WithFields(logrus.Fields{"ip": ip, "iqn": volumeMetaData.Iqn}).Info("iscsiadmin logout")
-		err = iscsiadminLogout(ip, volumeMetaData.Iqn)
+	for _, ip := range volumeMetaData.IPs {
+		logger.WithFields(logrus.Fields{"ip": ip, "iqn": volumeMetaData.IQN}).Info("iscsiadmin logout")
+		err = iscsiadminLogout(ip.String(), volumeMetaData.IQN)
 		if err != nil {
-			return nil, status.Error(codes.Unknown, fmt.Sprintf("iscsiadminLogout error, %s", err.Error()))
+			return nil, status.Errorf(codes.Unknown, "iscsiadminLogout error, %v", err)
 		}
 	}
 
@@ -211,13 +208,13 @@ func (nodeServer *PacketNodeServer) NodePublishVolume(ctx context.Context, in *c
 	nodeServer.Driver.Logger.Info("NodePublishVolume called")
 
 	if in.VolumeId == "" {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("VolumeId unspecified for NodeStageVolume"))
+		return nil, status.Error(codes.InvalidArgument, "VolumeId unspecified for NodeStageVolume")
 	}
 	if in.TargetPath == "" {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("TargetPath unspecified for NodeStageVolume"))
+		return nil, status.Error(codes.InvalidArgument, "TargetPath unspecified for NodeStageVolume")
 	}
 	if in.StagingTargetPath == "" {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("StagingTargetPath unspecified for NodeStageVolume"))
+		return nil, status.Error(codes.InvalidArgument, "StagingTargetPath unspecified for NodeStageVolume")
 	}
 
 	logger := nodeServer.Driver.Logger.WithFields(logrus.Fields{
@@ -229,7 +226,7 @@ func (nodeServer *PacketNodeServer) NodePublishVolume(ctx context.Context, in *c
 
 	err := bindmountFs(in.GetStagingTargetPath(), in.GetTargetPath())
 	if err != nil {
-		return nil, status.Error(codes.Unknown, fmt.Sprintf("bind mount error, %+v", err))
+		return nil, status.Errorf(codes.Unknown, "bind mount error, %+v", err)
 	}
 	logger.Info("bind mount complete")
 	return &csi.NodePublishVolumeResponse{}, nil
@@ -241,10 +238,10 @@ func (nodeServer *PacketNodeServer) NodeUnpublishVolume(ctx context.Context, in 
 	nodeServer.Driver.Logger.Info("NodeUnpublishVolume called")
 
 	if in.VolumeId == "" {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("VolumeId unspecified for NodeUnpublishVolume"))
+		return nil, status.Error(codes.InvalidArgument, "VolumeId unspecified for NodeUnpublishVolume")
 	}
 	if in.TargetPath == "" {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("TargetPath unspecified for NodeUnpublishVolume"))
+		return nil, status.Error(codes.InvalidArgument, "TargetPath unspecified for NodeUnpublishVolume")
 	}
 
 	logger := nodeServer.Driver.Logger.WithFields(logrus.Fields{
@@ -255,7 +252,7 @@ func (nodeServer *PacketNodeServer) NodeUnpublishVolume(ctx context.Context, in 
 
 	err := unmountFs(in.GetTargetPath())
 	if err != nil {
-		return nil, status.Error(codes.Unknown, fmt.Sprintf("unmount error, %+v", err))
+		return nil, status.Errorf(codes.Unknown, "unmount error, %+v", err)
 	}
 	logger.Info("unmount complete")
 
