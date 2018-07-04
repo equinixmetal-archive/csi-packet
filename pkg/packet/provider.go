@@ -44,18 +44,13 @@ func NewPacketProvider(config Config) (*PacketVolumeProvider, error) {
 	logger := log.WithFields(log.Fields{"project_id": config.ProjectID})
 	logger.Info("Creating provider")
 
-	// if config.FacilityID == "" {
-	// 	return nil, fmt.Errorf("FacilityID not specified")
-	// }
-
-	provider := PacketVolumeProvider{config}
 	if config.FacilityID == "" {
 		facilityCode, err := GetPacketFacilityCodeMetadata()
 		if err != nil {
 			logger.Errorf("Cannot get facility code %v", err)
 			return nil, errors.Wrap(err, "cannot construct PacketVolumeProvider")
 		}
-		c := provider.client()
+		c := constructClient(config.AuthToken)
 		facilities, resp, err := c.Facilities.List()
 		if err != nil {
 			if resp.StatusCode == http.StatusForbidden {
@@ -76,12 +71,11 @@ func NewPacketProvider(config Config) (*PacketVolumeProvider, error) {
 		return nil, fmt.Errorf("FacilityID not specified and cannot be found")
 	}
 
+	provider := PacketVolumeProvider{config}
 	return &provider, nil
 }
 
-// Client() returns a new client for accessing Packet's API.
-func (p *PacketVolumeProvider) client() *packngo.Client {
-
+func constructClient(authToken string) *packngo.Client {
 	tr := &http.Transport{
 		MaxIdleConns:       10,
 		IdleConnTimeout:    30 * time.Second,
@@ -90,7 +84,12 @@ func (p *PacketVolumeProvider) client() *packngo.Client {
 	client := &http.Client{Transport: tr}
 
 	// client.Transport = logging.NewTransport("Packet", client.Transport)
-	return packngo.NewClientWithAuth(ConsumerToken, p.config.AuthToken, client)
+	return packngo.NewClientWithAuth(ConsumerToken, authToken, client)
+}
+
+// Client() returns a new client for accessing Packet's API.
+func (p *PacketVolumeProvider) client() *packngo.Client {
+	return constructClient(p.config.AuthToken)
 }
 
 // ListVolume wraps the packet api as an interface method

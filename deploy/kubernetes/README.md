@@ -2,15 +2,14 @@
 
 ### Step 1 (Create Credentials):
 
-Obtain the packet auth token, project id and facility id.
+Obtain the packet auth token and project id. Packet api calls require a facility id as well, which is derived at runtime from the location of the hosts.
 
 Note that the auth token must be at user or organization scope, since a project-scoped token does not provide access to all of the currently-used api endpoints.
 ```
 $ cat <<EOF > cloud-sa.json
 {
    "auth-token": "${PACKET_TOKEN}",
-   "project-id": "${PROJECT_ID}",
-   "facility-id": "${FACILITY_ID}"
+   "project-id": "${PROJECT_ID}"
 }
 EOF
 ```

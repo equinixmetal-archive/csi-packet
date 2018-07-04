@@ -61,7 +61,7 @@ spec:
               mountPath: /csi
         - name: packet-driver
           imagePullPolicy: Always
-          image: gcr.io/stackpoint-public/csi-packet-driver:0.0.3
+          image: gcr.io/stackpoint-public/csi-packet-driver:v0.1.0
           args:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
