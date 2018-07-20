@@ -17,6 +17,7 @@ kind: StatefulSet
 apiVersion: apps/v1beta1
 metadata:
   name: csi-packet-controller
+  namespace: kube-system
 spec:
   updateStrategy: 
     type: RollingUpdate
