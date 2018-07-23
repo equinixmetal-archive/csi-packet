@@ -2,6 +2,7 @@ kind: DaemonSet
 apiVersion: apps/v1
 metadata:
   name: csi-node
+  namespace: kube-system
 spec:
   selector:
     matchLabels:
