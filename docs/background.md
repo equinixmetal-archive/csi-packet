@@ -66,8 +66,8 @@ CSI examples
   *  https://github.com/thecodeteam/csi-vsphere
   *  https://github.com/openebs/csi-openebs/
   *  https://github.com/digitalocean/csi-digitalocean
-  *  https://github.com/GoogleCloudPlatform/compute-persistent-disk-csi-driver/
-  *  https://github.com/GoogleCloudPlatform/compute-persistent-disk-csi-driver/blob/master/deploy/kubernetes/README.md
+  *  https://github.com/kubernetes-sigs/gcp-compute-persistent-disk-csi-driver
+  *  https://github.com/kubernetes-sigs/gcp-compute-persistent-disk-csi-driver/blob/master/deploy/kubernetes/README.md
 
 grpc server
 

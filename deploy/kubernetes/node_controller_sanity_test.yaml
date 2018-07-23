@@ -2,7 +2,6 @@ kind: DaemonSet
 apiVersion: apps/v1
 metadata:
   name: csi-node
-  namespace: kube-system
 spec:
   selector:
     matchLabels:
@@ -16,12 +15,11 @@ spec:
       hostNetwork: true
       containers:
         - name: csi-driver-registrar
-          imagePullPolicy: IfNotPresent
-          image: quay.io/k8scsi/driver-registrar:v0.3.0
+          imagePullPolicy: Always
+          image: quay.io/k8scsi/driver-registrar:v0.2.0
           args:
             - "--v=5"
             - "--csi-address=$(ADDRESS)"
-            - "--kubelet-registration-path="
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -38,10 +36,11 @@ spec:
           securityContext:
             privileged: true
           imagePullPolicy: Always
-          image: gcr.io/stackpoint-public/csi-packet-driver:v0.1.0
+          image: gcr.io/stackpoint-public/csi-packet-driver:d9a36de-dirty
           args:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
+            - "--config=/etc/cloud-sa/cloud-sa.json"
           env:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
@@ -50,6 +49,9 @@ spec:
                 fieldRef:
                   fieldPath: spec.nodeName
           volumeMounts:
+            - name: cloud-sa-volume
+              readOnly: true
+              mountPath: "/etc/cloud-sa"
             - name: kubelet-dir
               mountPath: /var/lib/kubelet
               mountPropagation: "Bidirectional"
@@ -76,6 +78,9 @@ spec:
         #  hostPath:
         #    path: /var/lib/kubelet/device-plugins/
         #    type: DirectoryOrCreate
+        - name: cloud-sa-volume
+          secret:
+            secretName: cloud-sa
         - name: kubelet-dir
           hostPath:
             path: /var/lib/kubelet

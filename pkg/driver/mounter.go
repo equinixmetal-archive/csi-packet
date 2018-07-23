@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/golang/glog"
+	log "github.com/sirupsen/logrus"
 )
 
 // Methods to format and mount
@@ -17,13 +17,13 @@ func bindmountFs(src, target string) error {
 		if os.IsNotExist(err) {
 			os.MkdirAll(target, 0755)
 		} else {
-			glog.V(5).Infof("stat %s, %v", target, err)
+			log.Errorf("stat %s, %v", target, err)
 			return err
 		}
 	}
 	_, err := os.Stat(target)
 	if err != nil {
-		glog.V(5).Infof("stat %s, %v", target, err)
+		log.Errorf("stat %s, %v", target, err)
 		return err
 	}
 	args := []string{"--bind", src, target}
@@ -34,11 +34,15 @@ func bindmountFs(src, target string) error {
 func unmountFs(path string) error {
 	args := []string{path}
 	_, err := execCommand("umount", args...)
+	// if err != nil {
+	// 	execCommand("rmdir", args...)
+	// }
 	return err
 }
 
 func mountMappedDevice(device, target string) error {
 	devicePath := filepath.Join("/dev/mapper/", device)
+	os.MkdirAll(target, os.ModeDir)
 	args := []string{"-t", "ext4", "--source", devicePath, "--target", target}
 	_, err := execCommand("mount", args...)
 	return err

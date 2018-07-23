@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
-	"github.com/StackPointCloud/csi-packet/pkg/packet"
+	"github.com/packethost/csi-packet/pkg/packet"
+	log "github.com/sirupsen/logrus"
 )
 
 type PacketDriver struct {
@@ -12,6 +13,7 @@ type PacketDriver struct {
 	nodeID   string
 	endpoint string
 	config   packet.Config
+	Logger   *log.Entry
 }
 
 func NewPacketDriver(endpoint, nodeID, configurationPath string) (*PacketDriver, error) {
@@ -27,11 +29,14 @@ func NewPacketDriver(endpoint, nodeID, configurationPath string) (*PacketDriver,
 			return nil, err
 		}
 	}
+
 	return &PacketDriver{
-		name:     "csi-packet", // this could be configurable, and must match a plugin directory name for kubelet to use
+		// name https://github.com/container-storage-interface/spec/blob/master/spec.md#getplugininfo
+		name:     "net.packet.csi", // this could be configurable, but must match a plugin directory name for kubelet to use
 		nodeID:   nodeID,
 		endpoint: endpoint,
 		config:   config,
+		Logger:   log.WithFields(log.Fields{"node": nodeID, "endpoint": endpoint}),
 	}, nil
 }
 
@@ -41,10 +46,14 @@ func (d *PacketDriver) Run() {
 	identity := NewPacketIdentityServer(d)
 	var controller *PacketControllerServer
 	if d.config.AuthToken != "" {
-		p, _ := packet.NewPacketProvider(d.config)
+		p, err := packet.NewPacketProvider(d.config)
+		if err != nil {
+			d.Logger.Fatalf("Unable to create controller %+v", err)
+		}
 		controller = NewPacketControllerServer(p)
 	}
 	node := NewPacketNodeServer(d)
+	d.Logger.Info("Starting server")
 	s.Start(d.endpoint,
 		identity,
 		controller,

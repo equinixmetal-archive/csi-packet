@@ -36,11 +36,11 @@ spec:
       serviceAccount: csi-controller-sa
       containers:
         - name: csi-external-provisioner
-          imagePullPolicy: Always
-          image: quay.io/k8scsi/csi-provisioner:v0.2.0
+          imagePullPolicy: IfNotPresent
+          image: quay.io/k8scsi/csi-provisioner:v0.3.0
           args:
             - "--v=5"
-            - "--provisioner=csi-packet"
+            - "--provisioner=net.packet.csi"
             - "--csi-address=$(ADDRESS)"
           env:
             - name: ADDRESS
@@ -49,8 +49,8 @@ spec:
             - name: socket-dir
               mountPath: /csi
         - name: csi-attacher
-          imagePullPolicy: Always
-          image: quay.io/k8scsi/csi-attacher:v0.2.0
+          imagePullPolicy: IfNotPresent
+          image: quay.io/k8scsi/csi-attacher:v0.3.0
           args:
             - "--v=5"
             - "--csi-address=$(ADDRESS)"
@@ -62,9 +62,8 @@ spec:
               mountPath: /csi
         - name: packet-driver
           imagePullPolicy: Always
-          image: gcr.io/stackpoint-public/csi-packet-driver:0.0.2
+          image: gcr.io/stackpoint-public/csi-packet-driver:v0.1.0
           args:
-            - "--v=5"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
             - "--config=/etc/cloud-sa/cloud-sa.json"

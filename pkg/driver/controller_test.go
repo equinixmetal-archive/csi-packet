@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/StackPointCloud/csi-packet/pkg/packet"
-	"github.com/StackPointCloud/csi-packet/pkg/test"
+	"github.com/packethost/csi-packet/pkg/packet"
+	"github.com/packethost/csi-packet/pkg/test"
 
 	"github.com/stretchr/testify/assert"
 
@@ -33,7 +33,7 @@ func TestCreateVolume(t *testing.T) {
 
 	provider := test.NewMockVolumeProvider(mockCtrl)
 	volume := packngo.Volume{
-		Size:        packet.DefaultVolumeSizeGb,
+		Size:        packet.DefaultVolumeSizeGi,
 		ID:          providerVolumeID,
 		Description: packet.NewVolumeDescription(csiVolumeName).String(),
 	}
@@ -47,17 +47,25 @@ func TestCreateVolume(t *testing.T) {
 	provider.EXPECT().Create(gomock.Any()).Return(&volume, &resp, nil)
 
 	controller := NewPacketControllerServer(provider)
-	volumeRequest := csi.CreateVolumeRequest{}
+	volumeRequest := csi.CreateVolumeRequest{
+		VolumeCapabilities: []*csi.VolumeCapability{
+			&csi.VolumeCapability{
+				AccessMode: &csi.VolumeCapability_AccessMode{
+					Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+				},
+			},
+		},
+	}
 	volumeRequest.Name = csiVolumeName
 	volumeRequest.CapacityRange = &csi.CapacityRange{
-		RequiredBytes: 10 * 1024 * 1024 * 1024,
-		LimitBytes:    100 * 1024 * 1024 * 1024,
+		RequiredBytes: 10 * packet.Gibi,
+		LimitBytes:    100 * packet.Gibi,
 	}
 
 	csiResp, err := controller.CreateVolume(context.TODO(), &volumeRequest)
 	assert.Nil(t, err)
 	assert.Equal(t, providerVolumeID, csiResp.GetVolume().Id)
-	assert.Equal(t, packet.DefaultVolumeSizeGb*packet.GB, csiResp.GetVolume().GetCapacityBytes())
+	assert.Equal(t, packet.DefaultVolumeSizeGi*packet.Gibi, csiResp.GetVolume().GetCapacityBytes())
 
 }
 
@@ -102,9 +110,9 @@ func runTestCreateVolume(t *testing.T, description string, volumeRequest csi.Cre
 	controller := NewPacketControllerServer(provider)
 
 	csiResp, err := controller.CreateVolume(context.TODO(), &volumeRequest)
-	assert.Nil(t, err)
+	assert.Nil(t, err, description)
 	assert.Equal(t, providerVolume.ID, csiResp.GetVolume().Id, description)
-	assert.Equal(t, int64(providerVolume.Size)*packet.GB, csiResp.GetVolume().GetCapacityBytes(), description)
+	assert.Equal(t, int64(providerVolume.Size)*packet.Gibi, csiResp.GetVolume().GetCapacityBytes(), description)
 }
 
 type VolumeTestCase struct {
@@ -122,8 +130,15 @@ func TestCreateVolumes(t *testing.T) {
 			volumeRequest: csi.CreateVolumeRequest{
 				Name: "pv-qT2QXcwbqPB3BAurt1ccs7g6SDVT0qLv",
 				CapacityRange: &csi.CapacityRange{
-					RequiredBytes: 10 * 1024 * 1024 * 1024,
-					LimitBytes:    173 * 1024 * 1024 * 1024,
+					RequiredBytes: 10 * packet.Gibi,
+					LimitBytes:    173 * packet.Gibi,
+				},
+				VolumeCapabilities: []*csi.VolumeCapability{
+					&csi.VolumeCapability{
+						AccessMode: &csi.VolumeCapability_AccessMode{
+							Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+						},
+					},
 				},
 			},
 			providerRequest: packngo.VolumeCreateRequest{
@@ -146,18 +161,25 @@ func TestCreateVolumes(t *testing.T) {
 				Name: "pv-61C4yMq09WV1ZpNIOBKHRQDKoZzyK7ZF",
 				CapacityRange: &csi.CapacityRange{
 					RequiredBytes: 1 * 1024 * 1024,
-					LimitBytes:    15000 * 1024 * 1024 * 1024,
+					LimitBytes:    15000 * packet.Gibi,
+				},
+				VolumeCapabilities: []*csi.VolumeCapability{
+					&csi.VolumeCapability{
+						AccessMode: &csi.VolumeCapability_AccessMode{
+							Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+						},
+					},
 				},
 			},
 			providerRequest: packngo.VolumeCreateRequest{
 				BillingCycle: packet.BillingHourly,
 				Description:  packet.NewVolumeDescription("pv-61C4yMq09WV1ZpNIOBKHRQDKoZzyK7ZF").String(),
 				Locked:       false,
-				Size:         packet.MaxVolumeSizeGb,
+				Size:         packet.MaxVolumeSizeGi,
 				PlanID:       packet.VolumePlanStandardID,
 			},
 			providerVolume: packngo.Volume{
-				Size:        packet.DefaultVolumeSizeGb,
+				Size:        packet.DefaultVolumeSizeGi,
 				ID:          "06e45c5c-8bd9-44fd-a9e4-1518105de113",
 				Description: packet.NewVolumeDescription("pv-61C4yMq09WV1ZpNIOBKHRQDKoZzyK7ZF").String(),
 			},
@@ -171,16 +193,23 @@ func TestCreateVolumes(t *testing.T) {
 					RequiredBytes: 1 * 1024 * 1024,
 					LimitBytes:    1 * 1024 * 1024,
 				},
+				VolumeCapabilities: []*csi.VolumeCapability{
+					&csi.VolumeCapability{
+						AccessMode: &csi.VolumeCapability_AccessMode{
+							Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+						},
+					},
+				},
 			},
 			providerRequest: packngo.VolumeCreateRequest{
 				BillingCycle: packet.BillingHourly,
 				Description:  packet.NewVolumeDescription("pv-61C4yMq09WV1ZpNIOBKHRQDKoZzyK7ZF").String(),
 				Locked:       false,
-				Size:         packet.MinVolumeSizeGb,
+				Size:         packet.MinVolumeSizeGi,
 				PlanID:       packet.VolumePlanStandardID,
 			},
 			providerVolume: packngo.Volume{
-				Size:        packet.DefaultVolumeSizeGb,
+				Size:        packet.DefaultVolumeSizeGi,
 				ID:          "8c3b6f51-7045-44b8-ab6d-d6df7371471e",
 				Description: packet.NewVolumeDescription("pv-61C4yMq09WV1ZpNIOBKHRQDKoZzyK7ZF").String(),
 			},
@@ -191,16 +220,23 @@ func TestCreateVolumes(t *testing.T) {
 			volumeRequest: csi.CreateVolumeRequest{
 				Name:       "pv-pUk6DzHQF3cGMfLCRnXSpDJ2HpzhefKI",
 				Parameters: map[string]string{"plan": "performance"},
+				VolumeCapabilities: []*csi.VolumeCapability{
+					&csi.VolumeCapability{
+						AccessMode: &csi.VolumeCapability_AccessMode{
+							Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+						},
+					},
+				},
 			},
 			providerRequest: packngo.VolumeCreateRequest{
 				BillingCycle: packet.BillingHourly,
 				Description:  packet.NewVolumeDescription("pv-61C4yMq09WV1ZpNIOBKHRQDKoZzyK7ZF").String(),
 				Locked:       false,
-				Size:         packet.DefaultVolumeSizeGb,
+				Size:         packet.DefaultVolumeSizeGi,
 				PlanID:       packet.VolumePlanPerformanceID,
 			},
 			providerVolume: packngo.Volume{
-				Size:        packet.DefaultVolumeSizeGb,
+				Size:        packet.DefaultVolumeSizeGi,
 				ID:          "a94ecff0-b221-4d2d-8dc4-432bed506941",
 				Description: packet.NewVolumeDescription("pv-61C4yMq09WV1ZpNIOBKHRQDKoZzyK7ZF").String(),
 			},
@@ -221,10 +257,14 @@ func TestIdempotentCreateVolume(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	provider := test.NewMockVolumeProvider(mockCtrl)
-	volume := packngo.Volume{
-		Size:        packet.DefaultVolumeSizeGb,
+	volumeAlreadyExisting := packngo.Volume{
+		Size:        packet.DefaultVolumeSizeGi,
 		ID:          providerVolumeID,
 		Description: packet.NewVolumeDescription(csiVolumeName).String(),
+		Plan: &packngo.Plan{
+			Name: packet.VolumePlanStandard,
+			ID:   packet.VolumePlanStandardID,
+		},
 	}
 	resp := packngo.Response{
 		&http.Response{
@@ -232,15 +272,30 @@ func TestIdempotentCreateVolume(t *testing.T) {
 		},
 		packngo.Rate{},
 	}
-	provider.EXPECT().ListVolumes().Return([]packngo.Volume{volume}, &resp, nil)
+	provider.EXPECT().ListVolumes().Return([]packngo.Volume{volumeAlreadyExisting}, &resp, nil)
 
 	controller := NewPacketControllerServer(provider)
-	volumeRequest := csi.CreateVolumeRequest{}
-	volumeRequest.Name = csiVolumeName
+	volumeRequest := csi.CreateVolumeRequest{
+		Name: csiVolumeName,
+		CapacityRange: &csi.CapacityRange{
+			RequiredBytes: packet.DefaultVolumeSizeGi * packet.Gibi,
+			LimitBytes:    packet.DefaultVolumeSizeGi * packet.Gibi,
+		},
+		VolumeCapabilities: []*csi.VolumeCapability{
+			&csi.VolumeCapability{
+				AccessMode: &csi.VolumeCapability_AccessMode{
+					Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+				},
+			},
+		},
+		Parameters: map[string]string{
+			"plan": packet.VolumePlanStandard,
+		},
+	}
 
 	csiResp, err := controller.CreateVolume(context.TODO(), &volumeRequest)
 	assert.Nil(t, err)
-	assert.Equal(t, providerVolumeID, csiResp.GetVolume().Id)
+	assert.Equal(t, volumeAlreadyExisting.ID, csiResp.GetVolume().Id)
 }
 
 func TestListVolumes(t *testing.T) {
