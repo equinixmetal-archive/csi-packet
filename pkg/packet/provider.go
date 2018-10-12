@@ -59,13 +59,20 @@ func NewPacketProvider(config Config) (*PacketVolumeProvider, error) {
 			return nil, errors.Wrap(err, "cannot construct PacketVolumeProvider")
 		}
 		for _, facility := range facilities {
-			if facility.Code == facilityCode {
-				config.FacilityID = facility.ID
-				logger.WithField("facility_id", facility.ID).Infof("facility found")
-				break
+			if facility.Code != facilityCode {
+				continue
 			}
+
+			if !contains(facility.Features, "storage") {
+				return nil, errors.New("this device's facility does not support storage volumes")
+			}
+
+			config.FacilityID = facility.ID
+			logger.WithField("facility_id", facility.ID).Infof("facility found")
+			break
 		}
 	}
+
 	if config.FacilityID == "" {
 		logger.Errorf("FacilityID not specified and cannot be found")
 		return nil, fmt.Errorf("FacilityID not specified and cannot be found")
@@ -73,6 +80,16 @@ func NewPacketProvider(config Config) (*PacketVolumeProvider, error) {
 
 	provider := PacketVolumeProvider{config}
 	return &provider, nil
+}
+
+func contains(arr []string, str string) bool {
+	for _, a := range arr {
+		if a == str {
+			return true
+		}
+	}
+
+	return false
 }
 
 func constructClient(authToken string) *packngo.Client {
