@@ -30,6 +30,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi/v0"
 )
 
+// ParseEndpoint parse an endpoint into its parts of protocol and address
 func ParseEndpoint(ep string) (string, string, error) {
 	if strings.HasPrefix(strings.ToLower(ep), "unix://") || strings.HasPrefix(strings.ToLower(ep), "tcp://") {
 		s := strings.SplitN(ep, "://", 2)
@@ -56,7 +57,7 @@ func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, h
 	return resp, err
 }
 
-// Defines Non blocking GRPC server interfaces
+// NonBlockingGRPCServer Defines Non blocking GRPC server interfaces
 type NonBlockingGRPCServer interface {
 	// Start services at the endpoint
 	Start(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer)
@@ -68,6 +69,7 @@ type NonBlockingGRPCServer interface {
 	ForceStop()
 }
 
+// NewNonBlockingGRPCServer create a new NonBlockingGRPCServer
 func NewNonBlockingGRPCServer() NonBlockingGRPCServer {
 	return &nonBlockingGRPCServer{}
 }

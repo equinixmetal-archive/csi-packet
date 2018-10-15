@@ -13,10 +13,12 @@ import (
 
 var _ csi.NodeServer = &PacketNodeServer{}
 
+// PacketNodeServer represents a packet node
 type PacketNodeServer struct {
 	Driver *PacketDriver
 }
 
+// NewPacketNodeServer create a new PacketNodeServer
 func NewPacketNodeServer(driver *PacketDriver) *PacketNodeServer {
 	return &PacketNodeServer{
 		Driver: driver,
@@ -35,7 +37,7 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 		return nil, status.Error(codes.InvalidArgument, "VolumeName unspecified for NodeStageVolume")
 	}
 
-	volumeMetaData, err := packet.GetPacketVolumeMetadata(volumeName)
+	volumeMetaData, err := packet.GetVolumeMetadata(volumeName)
 	if err != nil {
 		nodeServer.Driver.Logger.Errorf("NodeStageVolume: %v", err)
 		return nil, status.Errorf(codes.Unknown, "metadata error, %s", err.Error())
@@ -101,7 +103,7 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 		logger.Infof("writeBindings error, %+v", err)
 		return nil, status.Errorf(codes.Unknown, "writeBindings error, %+v", err)
 	}
-	for mappingName, _ := range discards {
+	for mappingName := range discards {
 		multipath("-f", mappingName)
 	}
 	multipath(volumeName)
@@ -164,7 +166,7 @@ func (nodeServer *PacketNodeServer) NodeUnstageVolume(ctx context.Context, in *c
 	}
 	logger.Infof("Unmounted staging target")
 
-	volumeMetaData, err := packet.GetPacketVolumeMetadata(volumeName)
+	volumeMetaData, err := packet.GetVolumeMetadata(volumeName)
 	if err != nil {
 		return nil, status.Errorf(codes.Unknown, "metadata access error, %v ", err)
 	}
@@ -184,7 +186,7 @@ func (nodeServer *PacketNodeServer) NodeUnstageVolume(ctx context.Context, in *c
 		return nil, status.Errorf(codes.Unknown, "multipath error, %v", err)
 	}
 	logger.Info("multipath flush")
-	for mappingName, _ := range discards {
+	for mappingName := range discards {
 		multipath("-f", mappingName)
 	}
 	multipath("-f", volumeName)
@@ -259,15 +261,15 @@ func (nodeServer *PacketNodeServer) NodeUnpublishVolume(ctx context.Context, in 
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
-// NodeGetId
-func (nodeServer *PacketNodeServer) NodeGetId(ctx context.Context, in *csi.NodeGetIdRequest) (*csi.NodeGetIdResponse, error) {
+// NodeGetId get the ID of a given node
+func (nodeServer *PacketNodeServer) NodeGetId(ctx context.Context, in *csi.NodeGetIdRequest) (*csi.NodeGetIdResponse, error) { // nolint: golint
 	nodeServer.Driver.Logger.Info("NodeGetId called")
 	return &csi.NodeGetIdResponse{
 		NodeId: nodeServer.Driver.nodeID,
 	}, nil
 }
 
-// NodeGetInfo
+// NodeGetInfo get info for a given node
 func (nodeServer *PacketNodeServer) NodeGetInfo(context.Context, *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
 	nodeServer.Driver.Logger.Info("NodeGetInfo called")
 	return &csi.NodeGetInfoResponse{
@@ -277,7 +279,7 @@ func (nodeServer *PacketNodeServer) NodeGetInfo(context.Context, *csi.NodeGetInf
 	}, nil
 }
 
-// NodeGetCapabilities
+// NodeGetCapabilities get capabilities of a given node
 func (nodeServer *PacketNodeServer) NodeGetCapabilities(ctx context.Context, in *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
 
 	nodeServer.Driver.Logger.Info("NodeGetCapabilities called")

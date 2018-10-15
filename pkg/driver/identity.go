@@ -11,14 +11,17 @@ import (
 
 var _ csi.IdentityServer = &PacketIdentityServer{}
 
+// PacketIdentityServer represent the identity server for Packet
 type PacketIdentityServer struct {
 	Driver *PacketDriver
 }
 
+// NewPacketIdentityServer create a new PacketIdentityServer
 func NewPacketIdentityServer(driver *PacketDriver) *PacketIdentityServer {
 	return &PacketIdentityServer{driver}
 }
 
+// GetPluginInfo get information about the plugin
 func (packetIdentity *PacketIdentityServer) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
 	log.Infof("PacketIdentityServer.GetPluginInfo called")
 
@@ -32,6 +35,7 @@ func (packetIdentity *PacketIdentityServer) GetPluginInfo(ctx context.Context, r
 	}, nil
 }
 
+// GetPluginCapabilities get capabilities of the plugin
 func (packetIdentity *PacketIdentityServer) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
 	log.Infof("PacketIdentityServer.GetPluginCapabilities called")
 	return &csi.GetPluginCapabilitiesResponse{
@@ -47,6 +51,7 @@ func (packetIdentity *PacketIdentityServer) GetPluginCapabilities(ctx context.Co
 	}, nil
 }
 
+// Probe probe the identity server
 func (packetIdentity *PacketIdentityServer) Probe(ctx context.Context, req *csi.ProbeRequest) (*csi.ProbeResponse, error) {
 	log.Infof("PacketIdentityServer.Probe called with args: %#v", req)
 	return &csi.ProbeResponse{}, nil

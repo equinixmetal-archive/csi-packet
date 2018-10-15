@@ -1,0 +1,41 @@
+sudo: required
+language: go
+
+go: "1.10"
+
+env:
+  global:
+  - secure: ZkuwvvlPqee1Eve6bp+IqPw2vYPz80ggjkwaks5igfbUJD89u332lJLOwKMZ1CA5C1g5RDaEe/i0pD41Ps2uns0zT+Nlf6PY1xGTYnwJnHdsiMThoJc5w0vgtG2C49RbKBeQaMwZ3DJpIA+/LLw+8KDLiFYgbdfYL7IxFUnXI8aHa4eVkg3vgBI2fQZNvW8dxX/9YTtUv3XVRPFZvR5AkNZ39uy6yP5bezL5jWim5A13zAeN6W6JtZEa4WiBveTjFUBE2KLMvO2JX/D6tEJvXztEhEVwYzOkJCXNyFJPnfDqb+3UQMMuwWIsDYTgw3MMcNc5pT/CdFL1rL/J4Wykl1htD3zL/1/ELDd3Wm59BPaxhfSMptmyWzcDV3NHor4jVYMvCexMq/odyn05TQ7cf11wgoOUQVBBTzGaKDEuMybkoLiOFcDCAeaYU29fEg7QUlPwnQU4DDNXGT0kY/EKLbsPU4tsUDFjrjehkjfeUClcVJvjwMUfDVbAyz6VuWf54BeVjpgoNA38R2AMBuwemB8l+RBoaJjgDY3r3VAMk5n16W2vPEUa/gky6V18Y+IEMD6eM5rViWNZWIP7ZHcNjKUMIZpRBXtKDtzEDTnbnfhDCdSm8x/Q+kUlffTEY6LQvuNgVyU8cc7JTWfwbYj4P3eFJaDpiohgjR9WhH7U5DM=
+  - secure: uyGvk2p4rOZ7PytXH5NrnJUpBr7W0aG5c5uZ+wH35vuWrX6ClWdYvY3QZqL+APkJIqC5Z7nRHbKACi3PIhYx+Fw8+pE71YasNbjlkKlYv3jh3lSkkULJh4CVNgj0IXJAyawvg4CQJvs+xxHK/uyMCg3zhn+hGchM2Ct8ur4zIBhPeS24dgKZLB7TUdYyXmbVlhgKcbmlzQ3GJ+DBzdAaGZLVsXNTlXnj7wrq7tDaZ7oquiGIe6/wufDq1RR5WfZTyCv9vB38gHLwYjGuwWI/AFYxLKw70mCPHzvVpo/1qZj3SxYAek04U7I2OXt4+Y5Ps9mnKWoLsFy2l5MQd1vtQSvpsbujbE3iWvXC1j7iE3ASb8bE1c2f1NoMCrakkVKg9kD7BIge6Ooa1zcovK+V6OsFssxWOrTzDsF94kcKl6prum+V5Wr8GMBAgo8WmXan92A5t8SKtxk6vn5PxYo7nfau/Ri9fTnH3wVwd7goRNXxGR20N3Oo+gprwkwrIvG5uPpd5HGcfrJpBvWnclj9EZOh1pdrsDoWoIkuzVMXupAegQATlOWoh0Urn2mscQSTQLabpx0B51UGc1h2LjqQtWM5BT/GKtJLc2y+M4htrfBtkJ/5us15cEVjcYf1rY/flL0YAI/W4WVQkC6SBn+TmzhuqkCW8qCGeVd1RYGMEo4=
+
+
+before_install:
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+  - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+  - sudo apt-get update
+  - sudo apt-get -y install docker-ce
+
+services:
+  - docker
+
+jobs:
+  include:
+    - stage: ci-cd
+      script: make ci
+      before_deploy: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+      if: tag IS blank # only do push if there is no tag; if there is one, then we already should have pushed with a PR
+      deploy:
+        - provider: script
+          skip_cleanup: true
+          script: make cd CONFIRM=true BRANCH_NAME=${TRAVIS_BRANCH}
+    - stage: release
+      before_deploy: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+      if: tag IS NOT blank # only do release if there is no tag here
+      script: echo true
+      deploy:
+        - provider: script
+          skip_cleanup: true
+          script: make release CONFIRM=true
+          on: 
+            tags: true 
+

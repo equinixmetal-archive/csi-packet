@@ -38,10 +38,10 @@ func TestCreateVolume(t *testing.T) {
 		Description: packet.NewVolumeDescription(csiVolumeName).String(),
 	}
 	resp := packngo.Response{
-		&http.Response{
+		Response: &http.Response{
 			StatusCode: http.StatusOK,
 		},
-		packngo.Rate{},
+		Rate: packngo.Rate{},
 	}
 	provider.EXPECT().ListVolumes().Return([]packngo.Volume{}, &resp, nil)
 	provider.EXPECT().Create(gomock.Any()).Return(&volume, &resp, nil)
@@ -96,10 +96,10 @@ func runTestCreateVolume(t *testing.T, description string, volumeRequest csi.Cre
 	provider := test.NewMockVolumeProvider(mockCtrl)
 
 	resp := packngo.Response{
-		&http.Response{
+		Response: &http.Response{
 			StatusCode: http.StatusOK,
 		},
-		packngo.Rate{},
+		Rate: packngo.Rate{},
 	}
 	provider.EXPECT().ListVolumes().Return([]packngo.Volume{}, &resp, nil)
 	// provider.EXPECT().Create(gomock.Any()).Return(&providerVolume, &resp, nil)
@@ -267,10 +267,10 @@ func TestIdempotentCreateVolume(t *testing.T) {
 		},
 	}
 	resp := packngo.Response{
-		&http.Response{
+		Response: &http.Response{
 			StatusCode: http.StatusOK,
 		},
-		packngo.Rate{},
+		Rate: packngo.Rate{},
 	}
 	provider.EXPECT().ListVolumes().Return([]packngo.Volume{volumeAlreadyExisting}, &resp, nil)
 
@@ -306,10 +306,10 @@ func TestListVolumes(t *testing.T) {
 	provider := test.NewMockVolumeProvider(mockCtrl)
 
 	resp := packngo.Response{
-		&http.Response{
+		Response: &http.Response{
 			StatusCode: http.StatusOK,
 		},
-		packngo.Rate{},
+		Rate: packngo.Rate{},
 	}
 	provider.EXPECT().ListVolumes().Return([]packngo.Volume{}, &resp, nil)
 
@@ -331,10 +331,10 @@ func TestDeleteVolume(t *testing.T) {
 	provider := test.NewMockVolumeProvider(mockCtrl)
 
 	resp := packngo.Response{
-		&http.Response{
+		Response: &http.Response{
 			StatusCode: http.StatusOK,
 		},
-		packngo.Rate{},
+		Rate: packngo.Rate{},
 	}
 	provider.EXPECT().Delete(providerVolumeID).Return(&resp, nil)
 
@@ -359,19 +359,19 @@ func TestPublishVolume(t *testing.T) {
 	provider := test.NewMockVolumeProvider(mockCtrl)
 
 	resp := packngo.Response{
-		&http.Response{
+		Response: &http.Response{
 			StatusCode: http.StatusOK,
 		},
-		packngo.Rate{},
+		Rate: packngo.Rate{},
 	}
-	nodeIpAddress := packngo.IPAddressAssignment{}
-	nodeIpAddress.Address = csiNodeIP
+	nodeIPAddress := packngo.IPAddressAssignment{}
+	nodeIPAddress.Address = csiNodeIP
 	nodeResp := []packngo.Device{
 		packngo.Device{
 			Hostname: csiNodeName,
 			ID:       nodeID,
 			Network: []*packngo.IPAddressAssignment{
-				&nodeIpAddress,
+				&nodeIPAddress,
 			},
 		},
 	}
@@ -428,10 +428,10 @@ func TestUnpublishVolume(t *testing.T) {
 	provider := test.NewMockVolumeProvider(mockCtrl)
 
 	resp := packngo.Response{
-		&http.Response{
+		Response: &http.Response{
 			StatusCode: http.StatusOK,
 		},
-		packngo.Rate{},
+		Rate: packngo.Rate{},
 	}
 	attachedVolume := packngo.Volume{
 		ID: providerVolumeID,

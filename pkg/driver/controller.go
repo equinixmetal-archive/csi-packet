@@ -16,10 +16,12 @@ import (
 
 var _ csi.ControllerServer = &PacketControllerServer{}
 
+// PacketControllerServer controller server to manage CSI
 type PacketControllerServer struct {
 	Provider packet.VolumeProvider
 }
 
+// NewPacketControllerServer create new PacketControllerServer with the given provider
 func NewPacketControllerServer(provider packet.VolumeProvider) *PacketControllerServer {
 	return &PacketControllerServer{
 		Provider: provider,
@@ -74,6 +76,7 @@ func getPlanID(parameters map[string]string) string {
 	return planID
 }
 
+// CreateVolume create a volume in the given context
 func (controller *PacketControllerServer) CreateVolume(ctx context.Context, in *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 
 	if controller == nil || controller.Provider == nil {
@@ -158,6 +161,7 @@ func (controller *PacketControllerServer) CreateVolume(ctx context.Context, in *
 	return &out, nil
 }
 
+// DeleteVolume delete the specific volume
 func (controller *PacketControllerServer) DeleteVolume(ctx context.Context, in *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
 	if controller == nil || controller.Provider == nil {
 		return nil, status.Error(codes.Internal, "controller not configured")
@@ -253,7 +257,7 @@ func (controller *PacketControllerServer) ControllerPublishVolume(ctx context.Co
 	return response, nil
 }
 
-// ControllerPublishVolume detaches a volume from a node
+// ControllerUnpublishVolume detaches a volume from a node
 func (controller *PacketControllerServer) ControllerUnpublishVolume(ctx context.Context, in *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
 	if controller == nil || controller.Provider == nil {
 		return nil, status.Error(codes.Internal, "controller not configured")
@@ -303,6 +307,7 @@ func (controller *PacketControllerServer) ControllerUnpublishVolume(ctx context.
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
+// ValidateVolumeCapabilities validate that a given volume has the require capabilities
 func (controller *PacketControllerServer) ValidateVolumeCapabilities(ctx context.Context, in *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
 
 	if controller == nil || controller.Provider == nil {
@@ -346,6 +351,7 @@ func (controller *PacketControllerServer) ValidateVolumeCapabilities(ctx context
 	return resp, nil
 }
 
+// ListVolumes list known volumes
 func (controller *PacketControllerServer) ListVolumes(ctx context.Context, in *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
 	if controller == nil || controller.Provider == nil {
 		return nil, status.Error(codes.Internal, "controller not configured")
@@ -374,10 +380,12 @@ func (controller *PacketControllerServer) ListVolumes(ctx context.Context, in *c
 
 }
 
+// GetCapacity get the available capacity
 func (controller *PacketControllerServer) GetCapacity(ctx context.Context, in *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
+// ControllerGetCapabilities get capabilities of the controller
 func (controller *PacketControllerServer) ControllerGetCapabilities(ctx context.Context, in *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
 
 	// mapping function from defined RPC constant to capability type
@@ -408,14 +416,17 @@ func (controller *PacketControllerServer) ControllerGetCapabilities(ctx context.
 	return resp, nil
 }
 
+// CreateSnapshot snapshot a single volume
 func (controller *PacketControllerServer) CreateSnapshot(context.Context, *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
+// DeleteSnapshot delete an existing snapshot
 func (controller *PacketControllerServer) DeleteSnapshot(context.Context, *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
+// ListSnapshots list known snapshots
 func (controller *PacketControllerServer) ListSnapshots(context.Context, *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }

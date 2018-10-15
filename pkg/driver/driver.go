@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// PacketDriver driver for packet cloud
 type PacketDriver struct {
 	name     string
 	nodeID   string
@@ -16,6 +17,7 @@ type PacketDriver struct {
 	Logger   *log.Entry
 }
 
+// NewPacketDriver create a new PacketDriver
 func NewPacketDriver(endpoint, nodeID, configurationPath string) (*PacketDriver, error) {
 
 	var config packet.Config
@@ -40,6 +42,7 @@ func NewPacketDriver(endpoint, nodeID, configurationPath string) (*PacketDriver,
 	}, nil
 }
 
+// Run execute
 func (d *PacketDriver) Run() {
 
 	s := NewNonBlockingGRPCServer()

@@ -1,0 +1,11 @@
+FROM ubuntu:16.04
+
+ARG BINARY=packet-cloud-storage-interface
+ARG ARCH=amd64
+
+RUN apt-get update
+RUN apt-get install -y wget multipath-tools open-iscsi curl jq
+
+COPY bin/${BINARY}-${ARCH} ${BINARY}
+
+ENTRYPOINT ["/packet-cloud-storage-interface"]
