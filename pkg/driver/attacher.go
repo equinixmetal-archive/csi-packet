@@ -151,9 +151,8 @@ func readBindings() (map[string]string, map[string]string, error) {
 		if os.IsNotExist(err) {
 			// file does not exist
 			return bindings, discard, nil
-		} else {
-			return nil, nil, err
 		}
+		return nil, nil, err
 	}
 
 	f, err := os.Open(multipathBindings)

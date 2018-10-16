@@ -24,7 +24,7 @@ It relies on iscsid being configured correctly with the initiator name, and up m
 
 ## Deployment
 
-The files found in _deploy/kubernetes/_ define the deployment process, which follows the approach diagrammed in the [design proposal](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/storage/container-storage-interface.md#recommended-mechanism-for-deploying-csi-drivers-on-kubernetes)
+The files found in `deploy/kubernetes/` define the deployment process, which follows the approach diagrammed in the [design proposal](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/storage/container-storage-interface.md#recommended-mechanism-for-deploying-csi-drivers-on-kubernetes)
 
 ### Packet credentials
 
@@ -88,11 +88,23 @@ See additional documents in the docs/ directory
 The plugin at present is far from production assurance, and requires testing and hardening. Even listing the known issues is premature.
 
 ## Development
+The Makefile builds locally using your own installed `go`, or in a container via `docker run`. 
 
-The makefile uses an alpine-go image to build the driver, and packages it into an image, closely following https://github.com/thockin/go-build-template.  The version number defaults to the git hash but may be set explicitly.
+The following are standard commands:
 
-```
-dep ensure
-# export VERSION=5.4.3
-make container
-```
+* `make build ARCH=$(ARCH)` - ensure vendor dependencies and build the single CSI binary as `dist/bin/packet-cloud-storage-interface-$(ARCH)`
+* `make build-all` - ensure vendor dependencies and build the single CSI binary for all supported architectures. We build a binary for each arch for which a `Dockerfile.<arch>` exists in this directory.
+* `make build ARCH=$(ARCH) DOCKERBUILD=true` - ensure vendor dependencies and build the CSI binary as above, while performing the build inside a docker container
+* `make build-all` - ensure vendor dependencies and build the CSI binary for all supported architectures.
+* `make image ARCH=$(ARCH)` - make an OCI image for the provided ARCH
+* `make image-all` - make an OCI image for all supported architectures
+* `make ci` - build, test and create an OCI image for all supported architectures. This is what the CI system runs.
+* `make cd` - deploy images for all supported architectures, as well as a multi-arch manifest..
+* `make release` - deploy tagged release images for all supported architectures, as well as a multi-arch manifest..
+
+All images are tagged `$(TAG)-$(ARCH)`, where:
+
+* `TAG` = the image tag, which always includes the current branch when merged into `master`, and the short git hash. For git tags that are applied in master via `make release`, it also is the git tag. Thus a normal merge releases two image tags - git hash and `master` - while adding a git tag to release formally creates a third one.
+* `ARCH` = the architecture of the image
+
+In addition, we use multi-arch manifests for "archless" releases, e.g. `:3456abcd` or `:v1.2.3` or `:master`.

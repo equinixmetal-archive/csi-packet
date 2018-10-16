@@ -1,6 +1,7 @@
 _vendor*
 vendor/
 bin/
+dist/bin/
 .go/
 scratch
 .container*

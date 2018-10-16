@@ -25,24 +25,24 @@ import (
 // 	"iqn": "iqn.2013-05.com.daterainc:tc:01:sn:b06f15a423fec58b"
 // }
 
-// PacketCapacityMetaData exists for parsing json metadata
-type PacketCapacityMetaData struct {
+// CapacityMetaData exists for parsing json metadata
+type CapacityMetaData struct {
 	Size string `json:"size"`
 	Unit string `json:"unit"`
 }
 
-// PacketVolumeMetadata exists for parsing json metadata
-type PacketVolumeMetadata struct {
-	Name     string                 `json:"name"`
-	IPs      []net.IP               `json:"ips"`
-	Capacity PacketCapacityMetaData `json:"capacity"`
-	IQN      string                 `json:"iqn"`
+// VolumeMetadata exists for parsing json metadata
+type VolumeMetadata struct {
+	Name     string           `json:"name"`
+	IPs      []net.IP         `json:"ips"`
+	Capacity CapacityMetaData `json:"capacity"`
+	IQN      string           `json:"iqn"`
 }
 
-// get all the metadata, extract only the parsed volume information, select the desired volume
-func GetPacketVolumeMetadata(volumeName string) (PacketVolumeMetadata, error) {
+// GetVolumeMetadata get all the metadata, extract only the parsed volume information, select the desired volume
+func GetVolumeMetadata(volumeName string) (VolumeMetadata, error) {
 
-	empty := PacketVolumeMetadata{}
+	empty := VolumeMetadata{}
 
 	res, err := http.Get("https://metadata.packet.net/metadata")
 	if err != nil {
@@ -66,7 +66,7 @@ func GetPacketVolumeMetadata(volumeName string) (PacketVolumeMetadata, error) {
 		return empty, err
 	}
 
-	volumes := []PacketVolumeMetadata{}
+	volumes := []VolumeMetadata{}
 	err = json.Unmarshal(volumesAsJSON, &volumes)
 	if err != nil {
 		return empty, err
@@ -76,7 +76,7 @@ func GetPacketVolumeMetadata(volumeName string) (PacketVolumeMetadata, error) {
 		return empty, err
 	}
 
-	var volumeMetaData = PacketVolumeMetadata{}
+	var volumeMetaData = VolumeMetadata{}
 	for _, vdata := range volumes {
 		if vdata.Name == volumeName {
 			volumeMetaData = vdata
@@ -90,8 +90,8 @@ func GetPacketVolumeMetadata(volumeName string) (PacketVolumeMetadata, error) {
 	return volumeMetaData, nil
 }
 
-// get all the metadata, return the facility code
-func GetPacketFacilityCodeMetadata() (string, error) {
+// GetFacilityCodeMetadata get all the metadata, return the facility code
+func GetFacilityCodeMetadata() (string, error) {
 
 	res, err := http.Get("https://metadata.packet.net/metadata")
 	if err != nil {
@@ -117,7 +117,7 @@ func GetPacketFacilityCodeMetadata() (string, error) {
 }
 
 // use this when packngo serialization is fixed
-// GetPacketVolumeMetadata gets the volume metadata for a named volume
+// GetVolumeMetadata gets the volume metadata for a named volume
 func packngoGetPacketVolumeMetadata(volumeName string) (metadata.VolumeInfo, error) {
 	device, err := metadata.GetMetadata()
 	if err != nil {
@@ -141,7 +141,7 @@ func packngoGetPacketVolumeMetadata(volumeName string) (metadata.VolumeInfo, err
 }
 
 // use this when packngo serialization is fixed
-// GetPacketFacilityCodeMetadata returns the facility code
+// GetFacilityCodeMetadata returns the facility code
 func packngoGetPacketFacilityCodeMetadata() (string, error) {
 
 	device, err := metadata.GetMetadata()
