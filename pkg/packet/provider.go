@@ -20,8 +20,8 @@ const (
 
 // Config configuration for a volume provider, includes authentication token, project ID and facility ID
 type Config struct {
-	AuthToken  string `json:"auth-token"`
-	ProjectID  string `json:"project-id"`
+	AuthToken  string `json:"apiKey"`
+	ProjectID  string `json:"projectId"`
 	FacilityID string `json:"facility-id"`
 }
 

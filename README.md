@@ -3,6 +3,10 @@
 The CSI Packet plugin allows the creation and mounting of packet storage volumes as
 persistent volume claims in a kubernetes cluster.
 
+## Deploy
+Read how to deploy the Kubernetes CSI plugin for Packet [here](deploy/kubernetes/)!
+
+## Design
 The basic refernce for Kubernetes CSI is found at https://kubernetes-csi.github.io/docs/
 
 A typical sequence of the tasks performed by the Controller and Node components is
