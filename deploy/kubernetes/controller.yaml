@@ -85,4 +85,4 @@ spec:
           emptyDir: {}
         - name: cloud-sa-volume
           secret:
-            secretName: cloud-sa
+            secretName: packet-cloud-config

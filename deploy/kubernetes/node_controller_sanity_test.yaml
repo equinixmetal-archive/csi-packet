@@ -80,7 +80,7 @@ spec:
         #    type: DirectoryOrCreate
         - name: cloud-sa-volume
           secret:
-            secretName: cloud-sa
+            secretName: packet-cloud-config
         - name: kubelet-dir
           hostPath:
             path: /var/lib/kubelet
