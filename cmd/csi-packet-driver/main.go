@@ -76,6 +76,10 @@ func main() {
 }
 
 func handle() {
-	d, _ := driver.NewPacketDriver(endpoint, nodeID, providerConfig)
+	d, err := driver.NewPacketDriver(endpoint, nodeID, providerConfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to get packet driver: %v\n", err)
+		os.Exit(1)
+	}
 	d.Run()
 }
