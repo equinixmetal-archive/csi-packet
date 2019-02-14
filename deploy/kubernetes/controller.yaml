@@ -19,7 +19,7 @@ metadata:
   name: csi-packet-controller
   namespace: kube-system
 spec:
-  updateStrategy: 
+  updateStrategy:
     type: RollingUpdate
     rollingUpdate:
       partition: 0
@@ -37,7 +37,7 @@ spec:
       containers:
         - name: csi-external-provisioner
           imagePullPolicy: IfNotPresent
-          image: quay.io/k8scsi/csi-provisioner:v0.3.0
+          image: quay.io/k8scsi/csi-provisioner:v1.0.1
           args:
             - "--v=5"
             - "--provisioner=net.packet.csi"
@@ -50,7 +50,7 @@ spec:
               mountPath: /csi
         - name: csi-attacher
           imagePullPolicy: IfNotPresent
-          image: quay.io/k8scsi/csi-attacher:v0.3.0
+          image: quay.io/k8scsi/csi-attacher:v1.0.1
           args:
             - "--v=5"
             - "--csi-address=$(ADDRESS)"
@@ -62,7 +62,7 @@ spec:
               mountPath: /csi
         - name: packet-driver
           imagePullPolicy: Always
-          image: gcr.io/stackpoint-public/csi-packet-driver:v0.1.0
+          image: docker.io/packethost/csi-packet:be07664
           args:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"

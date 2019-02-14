@@ -17,11 +17,11 @@ spec:
       containers:
         - name: csi-driver-registrar
           imagePullPolicy: IfNotPresent
-          image: quay.io/k8scsi/driver-registrar:v0.3.0
+          image: quay.io/k8scsi/csi-node-driver-registrar:v1.0.1
           args:
             - "--v=5"
             - "--csi-address=$(ADDRESS)"
-            - "--kubelet-registration-path="
+            - "--kubelet-registration-path=/var/lib/kubelet/plugins/net.packet.csi/csi.sock"
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -32,13 +32,15 @@ spec:
           volumeMounts:
             - name: plugin-dir
               mountPath: /csi
+            - name: registration-dir
+              mountPath: /registration
           #  - name: registrar-socket-dir
           #    mountPath: /var/lib/csi/sockets/
         - name: packet-driver
           securityContext:
             privileged: true
           imagePullPolicy: Always
-          image: gcr.io/stackpoint-public/csi-packet-driver:v0.1.0
+          image: docker.io/packethost/csi-packet:be07664
           args:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
@@ -51,7 +53,7 @@ spec:
                   fieldPath: spec.nodeName
           volumeMounts:
             - name: kubelet-dir
-              mountPath: /var/lib/kubelet
+              mountPath: /var/lib/kubelet/pods
               mountPropagation: "Bidirectional"
             - name: plugin-dir
               mountPath: /csi
@@ -76,9 +78,13 @@ spec:
         #  hostPath:
         #    path: /var/lib/kubelet/device-plugins/
         #    type: DirectoryOrCreate
+        - name: registration-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins_registry
+            type: Directory
         - name: kubelet-dir
           hostPath:
-            path: /var/lib/kubelet
+            path: /var/lib/kubelet/pods
             type: Directory
         - name: plugin-dir
           hostPath:

@@ -6,7 +6,7 @@ import (
 
 	"net/http"
 
-	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
+	csi "github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/packethost/csi-packet/pkg/packet"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -121,8 +121,7 @@ func (controller *PacketControllerServer) CreateVolume(ctx context.Context, in *
 			out := csi.CreateVolumeResponse{
 				Volume: &csi.Volume{
 					CapacityBytes: int64(volume.Size) * packet.Gibi,
-					Id:            volume.ID,
-					Attributes:    nil,
+					VolumeId:      volume.ID,
 				},
 			}
 			return &out, nil
@@ -153,8 +152,7 @@ func (controller *PacketControllerServer) CreateVolume(ctx context.Context, in *
 	out := csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			CapacityBytes: int64(volume.Size) * packet.Gibi,
-			Id:            volume.ID,
-			Attributes:    nil,
+			VolumeId:      volume.ID,
 		},
 	}
 
@@ -252,7 +250,7 @@ func (controller *PacketControllerServer) ControllerPublishVolume(ctx context.Co
 	metadata["VolumeId"] = volumeID
 	metadata["VolumeName"] = volume.Name
 	response := &csi.ControllerPublishVolumeResponse{
-		PublishInfo: metadata,
+		PublishContext: metadata,
 	}
 	return response, nil
 }
@@ -325,30 +323,21 @@ func (controller *PacketControllerServer) ValidateVolumeCapabilities(ctx context
 	// testVolume := controller.Provider.Get(testVolumeID)
 
 	// supported capabilities all defined here instead
-	supported := []*csi.VolumeCapability_AccessMode{}
-	supported = append(supported, &csi.VolumeCapability_AccessMode{Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER})
-	supported = append(supported, &csi.VolumeCapability_AccessMode{Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY})
-
-	resp := &csi.ValidateVolumeCapabilitiesResponse{
-		Supported: false,
+	supported := map[csi.VolumeCapability_AccessMode_Mode]bool{
+		csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER:      true,
+		csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY: true,
 	}
-
 	for _, cap := range in.VolumeCapabilities {
-
-		mode := cap.AccessMode
-		hasSupport := false
-		for _, supportedCap := range supported {
-			if mode.Mode == supportedCap.Mode {
-				hasSupport = true
-			}
-		}
-
-		if !hasSupport {
-			return resp, nil
+		mode := cap.AccessMode.Mode
+		if !supported[mode] {
+			return &csi.ValidateVolumeCapabilitiesResponse{}, nil
 		}
 	}
-	resp.Supported = true
-	return resp, nil
+	return &csi.ValidateVolumeCapabilitiesResponse{
+		Confirmed: &csi.ValidateVolumeCapabilitiesResponse_Confirmed{
+			VolumeCapabilities: in.VolumeCapabilities,
+		},
+	}, nil
 }
 
 // ListVolumes list known volumes
@@ -369,7 +358,7 @@ func (controller *PacketControllerServer) ListVolumes(ctx context.Context, in *c
 		entry := &csi.ListVolumesResponse_Entry{
 			Volume: &csi.Volume{
 				CapacityBytes: int64(volume.Size * 1024 * 1024 * 1024),
-				Id:            volume.ID,
+				VolumeId:      volume.ID,
 			},
 		}
 		entries = append(entries, entry)

@@ -1,7 +1,7 @@
 package driver
 
 import (
-	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
+	csi "github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/packethost/csi-packet/pkg/version"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"

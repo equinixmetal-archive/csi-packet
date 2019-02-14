@@ -9,12 +9,10 @@ import (
 	"github.com/packethost/csi-packet/pkg/packet"
 	"github.com/packethost/csi-packet/pkg/test"
 
-	"github.com/stretchr/testify/assert"
-
-	"github.com/packethost/packngo"
-
-	"github.com/container-storage-interface/spec/lib/go/csi/v0"
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/mock/gomock"
+	"github.com/packethost/packngo"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -64,9 +62,8 @@ func TestCreateVolume(t *testing.T) {
 
 	csiResp, err := controller.CreateVolume(context.TODO(), &volumeRequest)
 	assert.Nil(t, err)
-	assert.Equal(t, providerVolumeID, csiResp.GetVolume().Id)
+	assert.Equal(t, providerVolumeID, csiResp.GetVolume().VolumeId)
 	assert.Equal(t, packet.DefaultVolumeSizeGi*packet.Gibi, csiResp.GetVolume().GetCapacityBytes())
-
 }
 
 type matchRequest struct {
@@ -111,7 +108,7 @@ func runTestCreateVolume(t *testing.T, description string, volumeRequest csi.Cre
 
 	csiResp, err := controller.CreateVolume(context.TODO(), &volumeRequest)
 	assert.Nil(t, err, description)
-	assert.Equal(t, providerVolume.ID, csiResp.GetVolume().Id, description)
+	assert.Equal(t, providerVolume.ID, csiResp.GetVolume().VolumeId, description)
 	assert.Equal(t, int64(providerVolume.Size)*packet.Gibi, csiResp.GetVolume().GetCapacityBytes(), description)
 }
 
@@ -295,7 +292,7 @@ func TestIdempotentCreateVolume(t *testing.T) {
 
 	csiResp, err := controller.CreateVolume(context.TODO(), &volumeRequest)
 	assert.Nil(t, err)
-	assert.Equal(t, volumeAlreadyExisting.ID, csiResp.GetVolume().Id)
+	assert.Equal(t, volumeAlreadyExisting.ID, csiResp.GetVolume().VolumeId)
 }
 
 func TestListVolumes(t *testing.T) {
@@ -413,10 +410,10 @@ func TestPublishVolume(t *testing.T) {
 	csiResp, err := controller.ControllerPublishVolume(context.TODO(), &volumeRequest)
 	assert.Nil(t, err)
 	assert.NotNil(t, csiResp)
-	assert.NotNil(t, csiResp.GetPublishInfo())
-	assert.Equal(t, attachmentID, csiResp.PublishInfo["AttachmentId"])
-	assert.Equal(t, providerVolumeID, csiResp.PublishInfo["VolumeId"])
-	assert.Equal(t, providerVolumeName, csiResp.PublishInfo["VolumeName"])
+	assert.NotNil(t, csiResp.GetPublishContext())
+	assert.Equal(t, attachmentID, csiResp.PublishContext["AttachmentId"])
+	assert.Equal(t, providerVolumeID, csiResp.PublishContext["VolumeId"])
+	assert.Equal(t, providerVolumeName, csiResp.PublishContext["VolumeName"])
 
 }
 
@@ -476,9 +473,9 @@ func TestGetCapacity(t *testing.T) {
 }
 
 type volumeCapabilityTestCase struct {
-	capabilitySet     []*csi.VolumeCapability
-	isPacketSupported bool
-	description       string
+	capabilitySet   []*csi.VolumeCapability
+	packetSupported *csi.ValidateVolumeCapabilitiesResponse_Confirmed
+	description     string
 }
 
 func getVolumeCapabilityTestCases() []volumeCapabilityTestCase {
@@ -502,39 +499,47 @@ func getVolumeCapabilityTestCases() []volumeCapabilityTestCase {
 	return []volumeCapabilityTestCase{
 
 		{
-			capabilitySet:     []*csi.VolumeCapability{&snwCap},
-			isPacketSupported: true,
-			description:       "single node writer",
+			capabilitySet: []*csi.VolumeCapability{&snwCap},
+			packetSupported: &csi.ValidateVolumeCapabilitiesResponse_Confirmed{
+				VolumeCapabilities: []*csi.VolumeCapability{
+					&snwCap,
+				},
+			},
+			description: "single node writer",
 		},
 		{
-			capabilitySet:     []*csi.VolumeCapability{&snroCap},
-			isPacketSupported: true,
-			description:       "single node read only",
+			capabilitySet: []*csi.VolumeCapability{&snroCap},
+			packetSupported: &csi.ValidateVolumeCapabilitiesResponse_Confirmed{
+				VolumeCapabilities: []*csi.VolumeCapability{
+					&snroCap,
+				},
+			},
+			description: "single node read only",
 		},
 		{
-			capabilitySet:     []*csi.VolumeCapability{&mnroCap},
-			isPacketSupported: false,
-			description:       "multi node read only",
+			capabilitySet: []*csi.VolumeCapability{&mnroCap},
+			description:   "multi node read only",
 		},
 		{
-			capabilitySet:     []*csi.VolumeCapability{&mnswCap},
-			isPacketSupported: false,
-			description:       "multinode single writer",
+			capabilitySet: []*csi.VolumeCapability{&mnswCap},
+			description:   "multinode single writer",
 		},
 		{
-			capabilitySet:     []*csi.VolumeCapability{&mnmwCap},
-			isPacketSupported: false,
-			description:       "multi node multi writer",
+			capabilitySet: []*csi.VolumeCapability{&mnmwCap},
+			description:   "multi node multi writer",
 		},
 		{
-			capabilitySet:     []*csi.VolumeCapability{&mnmwCap, &mnroCap, &mnswCap, &snroCap, &snwCap},
-			isPacketSupported: false,
-			description:       "all capabilities",
+			capabilitySet: []*csi.VolumeCapability{&mnmwCap, &mnroCap, &mnswCap, &snroCap, &snwCap},
+			description:   "all capabilities",
 		},
 		{
-			capabilitySet:     []*csi.VolumeCapability{&snroCap, &snwCap},
-			isPacketSupported: true,
-			description:       "single node capabilities",
+			capabilitySet: []*csi.VolumeCapability{&snroCap, &snwCap},
+			packetSupported: &csi.ValidateVolumeCapabilitiesResponse_Confirmed{
+				VolumeCapabilities: []*csi.VolumeCapability{
+					&snroCap, &snwCap,
+				},
+			},
+			description: "single node capabilities",
 		},
 	}
 }
@@ -556,7 +561,7 @@ func TestValidateVolumeCapabilities(t *testing.T) {
 
 		resp, err := controller.ValidateVolumeCapabilities(context.TODO(), request)
 		assert.Nil(t, err)
-		assert.Equal(t, testCase.isPacketSupported, resp.Supported, testCase.description)
+		assert.Equal(t, testCase.packetSupported, resp.Confirmed, testCase.description)
 
 	}
 

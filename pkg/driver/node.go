@@ -4,7 +4,7 @@ import (
 	"github.com/packethost/csi-packet/pkg/packet"
 	"github.com/sirupsen/logrus"
 
-	"github.com/container-storage-interface/spec/lib/go/csi/v0"
+	"github.com/container-storage-interface/spec/lib/go/csi"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
@@ -32,7 +32,7 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 	// validate arguments
 	// this is the full packet UUID, not the abbreviated name...
 	// volumeID := in.VolumeId
-	volumeName := in.PublishInfo["VolumeName"]
+	volumeName := in.PublishContext["VolumeName"]
 	if volumeName == "" {
 		return nil, status.Error(codes.InvalidArgument, "VolumeName unspecified for NodeStageVolume")
 	}
@@ -261,11 +261,12 @@ func (nodeServer *PacketNodeServer) NodeUnpublishVolume(ctx context.Context, in 
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
-// NodeGetId get the ID of a given node
-func (nodeServer *PacketNodeServer) NodeGetId(ctx context.Context, in *csi.NodeGetIdRequest) (*csi.NodeGetIdResponse, error) { // nolint: golint
-	nodeServer.Driver.Logger.Info("NodeGetId called")
-	return &csi.NodeGetIdResponse{
-		NodeId: nodeServer.Driver.nodeID,
+// NodeGetVolumeStats gets the usage stats of the volume
+func (nodeServer *PacketNodeServer) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
+	nodeServer.Driver.Logger.Info("NodeGetVolumeStats called")
+	// TODO: get info from packet about the usage of this volume
+	return &csi.NodeGetVolumeStatsResponse{
+		Usage: []*csi.VolumeUsage{},
 	}, nil
 }
 
