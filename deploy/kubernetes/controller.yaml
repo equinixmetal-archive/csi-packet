@@ -62,7 +62,7 @@ spec:
               mountPath: /csi
         - name: packet-driver
           imagePullPolicy: Always
-          image: docker.io/packethost/csi-packet:be07664
+          image: docker.io/packethost/csi-packet:379e828
           args:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"

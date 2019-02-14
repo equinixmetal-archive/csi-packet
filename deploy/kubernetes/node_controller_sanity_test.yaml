@@ -36,7 +36,7 @@ spec:
           securityContext:
             privileged: true
           imagePullPolicy: Always
-          image: gcr.io/stackpoint-public/csi-packet-driver:d9a36de-dirty
+          image: docker.io/packethost/csi-packet:379e828
           args:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
