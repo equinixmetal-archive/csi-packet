@@ -1,9 +1,6 @@
 package driver
 
 import (
-	"encoding/json"
-	"io/ioutil"
-
 	"github.com/packethost/csi-packet/pkg/packet"
 	log "github.com/sirupsen/logrus"
 )
@@ -18,20 +15,7 @@ type PacketDriver struct {
 }
 
 // NewPacketDriver create a new PacketDriver
-func NewPacketDriver(endpoint, nodeID, configurationPath string) (*PacketDriver, error) {
-
-	var config packet.Config
-	if configurationPath != "" {
-		configBytes, err := ioutil.ReadFile(configurationPath)
-		if err != nil {
-			return nil, err
-		}
-		err = json.Unmarshal(configBytes, &config)
-		if err != nil {
-			return nil, err
-		}
-	}
-
+func NewPacketDriver(endpoint, nodeID string, config packet.Config) (*PacketDriver, error) {
 	return &PacketDriver{
 		// name https://github.com/container-storage-interface/spec/blob/master/spec.md#getplugininfo
 		name:     "net.packet.csi", // this could be configurable, but must match a plugin directory name for kubelet to use
