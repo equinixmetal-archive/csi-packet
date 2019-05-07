@@ -17,11 +17,14 @@ limitations under the License.
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	"github.com/packethost/csi-packet/pkg/driver"
+	"github.com/packethost/csi-packet/pkg/packet"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -30,6 +33,12 @@ var (
 	endpoint       string
 	nodeID         string
 	providerConfig string
+)
+
+const (
+	apiKeyName     = "PACKET_API_KEY"
+	projectIdName  = "PACKET_PROJECT_ID"
+	facilityIdName = "PACKET_FACILITY_ID"
 )
 
 func init() {
@@ -76,7 +85,41 @@ func main() {
 }
 
 func handle() {
-	d, err := driver.NewPacketDriver(endpoint, nodeID, providerConfig)
+	// create our config, as needed
+	var config, rawConfig packet.Config
+	if providerConfig != "" {
+		configBytes, err := ioutil.ReadFile(providerConfig)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to get read configuration file at path %s: %v\n", providerConfig, err)
+			os.Exit(1)
+		}
+		err = json.Unmarshal(configBytes, &rawConfig)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to process json of configuration file at path %s: %v\n", providerConfig, err)
+			os.Exit(1)
+		}
+	}
+
+	// read env vars; if not set, use rawConfig
+	apiToken := os.Getenv(apiKeyName)
+	if apiToken == "" {
+		apiToken = rawConfig.AuthToken
+	}
+	config.AuthToken = apiToken
+
+	projectID := os.Getenv(projectIdName)
+	if projectID == "" {
+		projectID = rawConfig.ProjectID
+	}
+	config.ProjectID = projectID
+
+	facilityID := os.Getenv(facilityIdName)
+	if facilityID == "" {
+		facilityID = rawConfig.FacilityID
+	}
+	config.FacilityID = facilityID
+
+	d, err := driver.NewPacketDriver(endpoint, nodeID, config)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to get packet driver: %v\n", err)
 		os.Exit(1)

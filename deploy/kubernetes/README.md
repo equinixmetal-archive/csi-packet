@@ -76,7 +76,23 @@ You can run the binary with `--help` to get command-line options. Important opti
 * `--endpoint=<path>` : (required) path to the kubelet registration socket. According to the spec, this should be `/var/lib/kubelet/plugins/<unique_provider_name>/csi.sock`. Thus we **strongly** recommend you mount it at `/var/lib/kubelet/plugins/net.packet.csi/csi.sock`. The deployment files in this repository assume that path.
 * `--nodeid=<name>` : (required) name of the node as understood by the kubernetes cluster. Normally retrieved via the Kubernetes [downward API](https://kubernetes.io/docs/tasks/inject-data-application/downward-api-volume-expose-pod-information/) as `spec.nodeName`
 * `--v=<level>` : (optional) verbosity level per [logrus](https://github.com/sirupsen/logrus)
-* `--config=<path>` : (optional) path to config file, in json format, that contains the packet API key and project ID as keys `apiKey` and `projectID` respectively. This file is _required_, unless the environment variables `PACKET_API_KEY` and `PACKET_PROJECT_ID` are set.
+* `--config=<path>` : (optional) path to config file, in json format, that contains the Packet configuration information as set below.
+
+### Config File Format
+
+The configuration file passed to `--config` must be a json file, and should contain the following keys:
+
+* `apiKey` : packet API key to use
+* `projectID` : packet project ID
+* `facilityID` : packet facility ID
+
+### Environment Variables
+
+In addition to passing information via the config file, you can set it in environment variables. Environment variables _always_ override any setting in the config file. The variables are:
+
+* `PACKET_API_KEY`
+* `PACKET_PROJECT_ID`
+* `PACKET_FACILITY_ID`
 
 ## Running the csi-sanity tests
 [csi-sanity](https://github.com/kubernetes-csi/csi-test/tree/master/cmd/csi-sanity) is a set of integration tests that can be run on a host where a csi-plugin is running.
