@@ -74,6 +74,7 @@ $ kubectl apply -f demo-deployment.yaml
 You can run the binary with `--help` to get command-line options. Important options are:
 
 * `--endpoint=<path>` : (required) path to the kubelet registration socket. According to the spec, this should be `/var/lib/kubelet/plugins/<unique_provider_name>/csi.sock`. Thus we **strongly** recommend you mount it at `/var/lib/kubelet/plugins/net.packet.csi/csi.sock`. The deployment files in this repository assume that path.
+* `--nodeid=<name>` : (required) name of the node as understood by the kubernetes cluster. Normally retrieved via the Kubernetes [downward API](https://kubernetes.io/docs/tasks/inject-data-application/downward-api-volume-expose-pod-information/) as `spec.nodeName`
 * `--v=<level>` : (optional) verbosity level per [logrus](https://github.com/sirupsen/logrus)
 * `--config=<path>` : (optional) path to config file, in json format, that contains the packet API key and project ID as keys `apiKey` and `projectID` respectively. This file is _required_, unless the environment variables `PACKET_API_KEY` and `PACKET_PROJECT_ID` are set.
 
