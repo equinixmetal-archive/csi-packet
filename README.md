@@ -4,7 +4,7 @@ The CSI Packet plugin allows the creation and mounting of packet storage volumes
 persistent volume claims in a kubernetes cluster.
 
 ## Deploy
-Read how to deploy the Kubernetes CSI plugin for Packet [here](deploy/kubernetes/)!
+Read how to deploy the Kubernetes CSI plugin for Packet [here](deploy//)!
 
 ## Design
 The basic refernce for Kubernetes CSI is found at https://kubernetes-csi.github.io/docs/
@@ -30,6 +30,8 @@ It relies on iscsid being configured correctly with the initiator name, and up m
 
 The files found in `deploy/kubernetes/` define the deployment process, which follows the approach diagrammed in the [design proposal](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/storage/container-storage-interface.md#recommended-mechanism-for-deploying-csi-drivers-on-kubernetes)
 
+The documentation for performing the deployment is [here](./deploy/).
+
 ### Packet credentials
 
 Packet credentials are used by the controller to manage volumes.  They are configured with a json-formatted secret which contains
@@ -42,11 +44,11 @@ The cluster is assumed to reside wholly in one facility, so the controller inclu
 
 ### RBAC
 
-The file deploy/kubernetes/setup.yaml contains the serviceaccount, role and rolebinding definitions used by the various components.
+The file [deploy/kubernetes/setup.yaml](./deploy/kubernetes/setup.yaml) contains the `ServiceAccount, `Role` and `RoleBinding` definitions used by the various components.
 
 ### Deployment
 
-The controller is deployed as a StatefulSet to ensure that there is a single instance of the pod.  The node is deployed as a daemonset, which will install an instance of the pod on every un-tainted node.  In most cluster deployments, the master node will have a `node-role.kubernetes.io/master:NoSchedule` taint and so the csi-packet plugin will not operate there.
+The controller is deployed as a `StatefulSet` to ensure that there is a single instance of the pod.  The node is deployed as a `DaemonSet`, which will install an instance of the pod on every un-tainted node.  In most cluster deployments, the master node will have a `node-role.kubernetes.io/master:NoSchedule` taint and so the csi-packet plugin will not operate there.
 
 ### Helper sidecar containers
 
@@ -54,38 +56,38 @@ The CSI plugin framework is designed to be agnostic with respect to the Containe
 
 The controller deployment uses
 
-  * external-attacher https://github.com/kubernetes-csi/external-attacher
-  * external-provisioner https://github.com/kubernetes-csi/external-provisioner
+  * [external-attacher](https://github.com/kubernetes-csi/external-attacher)
+  * [external-provisioner](https://github.com/kubernetes-csi/external-provisioner)
 
 which communicate with the kubernetes api within the cluster, and communicate with the csi-packet plugin through a unix domain socket shared in the pod.
 
 The node deployment uses
 
-  * driver-registrar https://github.com/kubernetes-csi/driver-registrar
+  * [driver-registrar](https://github.com/kubernetes-csi/driver-registrar)
 
 which advertises the csi-packet driver to the cluster.  There is also by unix domain socket communciation channel, but in this case it is a host-mounted directory in order to permit the kubelet process to interact with the plugin.
 
 TODO: incorporate the liveness prob
 
-* liveness-probe https://github.com/kubernetes-csi/livenessprobe
+* [liveness-probe](https://github.com/kubernetes-csi/livenessprobe)
 
 ### Mounted volumes and privilege
 
 The node processes must interact with services running on the host in order to connect, mount and format the packet volumes. These interactions require a particular pod configuration.  The driver invokes the *iscsiadm* and *multipath* client processes and they must communicate with the *iscisd* and *multipathd* systemd services.  In consequence, the pod
- - uses hostNetwork: true
- - is privileged
- - mounts /etc/
- - mounts /dev
- - mounts /var/lib/iscsi
- - mounts /sys/devices
- - mounts /run/udev/
- - mounts /var/lib/kubelet
- - mounts /csi
+ - uses `hostNetwork: true`
+ - uses `privileged: true`
+ - mounts `/etc`
+ - mounts `/dev`
+ - mounts `/var/lib/iscsi`
+ - mounts `/sys/devices`
+ - mounts `/run/udev/`
+ - mounts `/var/lib/kubelet`
+ - mounts `/csi`
 
 
 ## Further documentation
 
-See additional documents in the docs/ directory
+See additional documents in the `docs/` directory
 
 ## Caveat
 
