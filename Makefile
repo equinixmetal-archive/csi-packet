@@ -47,7 +47,7 @@ comma := ,
 prefix_linux = $(addprefix linux/,$(strip $1))
 join_platforms = $(subst $(space),$(comma),$(call prefix_linux,$(strip $1)))
 
-
+export GO111MODULE=on
 DIST_DIR=./dist/bin
 DIST_BINARY = $(DIST_DIR)/$(BINARY)-$(ARCH)
 BUILD_CMD = GOOS=linux GOARCH=$(ARCH)
@@ -78,9 +78,9 @@ fmt-check:
 	  exit 1; \
 	fi
 
-gometalinter:
-ifeq (, $(shell which gometalinter))
-	go get -u github.com/alecthomas/gometalinter
+golangci-lint:
+ifeq (, $(shell which golangci-lint))
+	go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.17.1
 endif
 
 golint:
@@ -89,8 +89,8 @@ ifeq (, $(shell which golint))
 endif
 
 ## Lint the files
-lint: pkgs golint gometalinter
-	@$(BUILD_CMD) gometalinter --disable-all --enable=golint   pkg/... cmd 
+lint: pkgs golint golangci-lint
+	@$(BUILD_CMD) golangci-lint run --disable-all --enable=golint pkg/... cmd/
 
 ## Run unittests
 test: pkgs
@@ -120,7 +120,7 @@ deploy:
 
 
 
-.PHONY: build build-all image vendor push deploy ci cd dep manifest-tool
+.PHONY: build build-all image push deploy ci cd dep manifest-tool
 
 ## Build the binaries for all supported ARCH
 build-all: $(addprefix sub-build-, $(ARCHES))
@@ -129,15 +129,8 @@ sub-build-%:
 
 ## Build the binary for a single ARCH
 build: $(DIST_BINARY)
-$(DIST_BINARY): $(DIST_DIR) vendor
+$(DIST_BINARY): $(DIST_DIR)
 	$(BUILD_CMD) go build -v -o $@ $(LDFLAGS) $(PACKAGE_NAME)/cmd/csi-packet-driver
-
-## ensure we have dep installed
-dep: 
-ifeq (, $(shell which dep))
-	mkdir -p $$GOPATH/bin
-	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-endif
 
 manifest-tool:
 ifeq (, $(shell which manifest-tool))
@@ -146,10 +139,6 @@ ifeq (, $(shell which manifest-tool))
 	chmod +x $$GOPATH/bin/$@
 endif
 
-
-## ensure vendor dependencies are installed
-vendor: dep
-	$(BUILD_CMD) dep ensure -vendor-only
 
 ## make the images for all supported ARCH
 image-all: $(addprefix sub-image-, $(ARCHES))

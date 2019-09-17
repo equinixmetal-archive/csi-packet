@@ -37,8 +37,8 @@ var (
 
 const (
 	apiKeyName     = "PACKET_API_KEY"
-	projectIdName  = "PACKET_PROJECT_ID"
-	facilityIdName = "PACKET_FACILITY_ID"
+	projectIDName  = "PACKET_PROJECT_ID"
+	facilityIDName = "PACKET_FACILITY_ID"
 )
 
 func init() {
@@ -107,13 +107,13 @@ func handle() {
 	}
 	config.AuthToken = apiToken
 
-	projectID := os.Getenv(projectIdName)
+	projectID := os.Getenv(projectIDName)
 	if projectID == "" {
 		projectID = rawConfig.ProjectID
 	}
 	config.ProjectID = projectID
 
-	facilityID := os.Getenv(facilityIdName)
+	facilityID := os.Getenv(facilityIDName)
 	if facilityID == "" {
 		facilityID = rawConfig.FacilityID
 	}
