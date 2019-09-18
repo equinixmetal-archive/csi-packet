@@ -132,6 +132,13 @@ build: $(DIST_BINARY)
 $(DIST_BINARY): $(DIST_DIR)
 	$(BUILD_CMD) go build -v -o $@ $(LDFLAGS) $(PACKAGE_NAME)/cmd/csi-packet-driver
 
+## copy a binary to an install destination
+install:
+ifneq (,$(DESTDIR))
+	mkdir -p $(DESTDIR)
+	cp $(DIST_BINARY) $(DESTDIR)/$(shell basename $(DIST_BINARY))
+endif
+
 manifest-tool:
 ifeq (, $(shell which manifest-tool))
 	mkdir -p $$GOPATH/bin
@@ -147,7 +154,7 @@ sub-image-%:
 
 ## make the image for a single ARCH
 image: register
-	docker image build -t $(BUILD_IMAGE):latest-$(ARCH) -f Dockerfile.$(ARCH) dist/
+	docker image build -t $(BUILD_IMAGE):latest-$(ARCH) -f Dockerfile.$(ARCH) .
 
 # Targets used when cross building.
 .PHONY: register
@@ -192,9 +199,9 @@ sub-pull-image-%:
 
 ## ensure that a particular tagged image exists locally; if not, pull it
 pull-images: imagetag
-ifeq (,$(shell docker image ls -q $(BUILD_IMAGE):$(IMAGETAG)-$(ARCH)))
+	ifeq (,$(shell docker image ls -q $(BUILD_IMAGE):$(IMAGETAG)-$(ARCH)))
 	docker pull $(BUILD_IMAGE):$(IMAGETAG)-$(ARCH)
-endif
+	endif
 
 ## clean up all artifacts
 clean:

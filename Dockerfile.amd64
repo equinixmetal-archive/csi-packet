@@ -1,4 +1,32 @@
-FROM ubuntu:16.04
+FROM golang:1.12.6 as build
+
+ARG pkgpath=/go/src/github.com/packethost/csi-packet/
+ENV GO111MODULE=on
+RUN mkdir -p $pkgpath
+WORKDIR $pkgpath
+# separate steps to avoid cache busting
+COPY go.mod go.sum $pkgpath
+RUN go mod download
+COPY . $pkgpath
+RUN make build install DESTDIR=/dist
+
+FROM gcc:9.2.0 as iscsi-build
+
+RUN apt update && apt install -y libkmod-dev libsystemd-dev
+RUN mkdir /src
+
+WORKDIR /src
+RUN git clone https://github.com/open-iscsi/open-isns.git
+WORKDIR /src/open-isns
+RUN git checkout cfdbcff867ee580a71bc9c18c3a38a6057df0150 && ./configure && make && make install install_hdrs install_lib
+
+WORKDIR /src
+RUN git clone https://github.com/open-iscsi/open-iscsi.git
+WORKDIR /src/open-iscsi
+# install to a fresh tree under /dist
+RUN mkdir /dist && git checkout 288add22d6b61cc68ede358faeec9affb15019cd && make && make install DESTDIR=/dist
+
+FROM ubuntu:18.04
 
 ARG BINARY=packet-cloud-storage-interface
 ARG ARCH=amd64
@@ -6,6 +34,12 @@ ARG ARCH=amd64
 RUN apt-get update
 RUN apt-get install -y wget multipath-tools open-iscsi curl jq
 
-COPY bin/${BINARY}-${ARCH} ${BINARY}
+# now install latest open-iscsi, ensuring it is *after* the apt install is done
+COPY --from=iscsi-build /dist/usr/lib64/ /usr/lib64
+COPY --from=iscsi-build /dist/sbin/ /sbin
+
+COPY --from=build /dist/${BINARY}-${ARCH} ${BINARY}
+
+ENV LD_LIBRARY_PATH=/usr/lib64:$LD_LIBRARY_PATH
 
 ENTRYPOINT ["/packet-cloud-storage-interface"]
