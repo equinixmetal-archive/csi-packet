@@ -40,7 +40,7 @@ spec:
           securityContext:
             privileged: true
           imagePullPolicy: Always
-          image: docker.io/packethost/csi-packet:379e828
+          image: docker.io/packethost/csi-packet:3cd3f07
           args:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
