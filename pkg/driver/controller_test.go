@@ -34,6 +34,7 @@ func TestCreateVolume(t *testing.T) {
 		Size:        packet.DefaultVolumeSizeGi,
 		ID:          providerVolumeID,
 		Description: packet.NewVolumeDescription(csiVolumeName).String(),
+		State:       "active",
 	}
 	resp := packngo.Response{
 		Response: &http.Response{
@@ -81,11 +82,21 @@ func (o *matchRequest) Matches(x interface{}) bool {
 		volumeRequest.PlanID == o.request.PlanID
 }
 
+type matchGet struct {
+	desc string
+	id   string
+}
+
+func (o *matchGet) Matches(x interface{}) bool {
+	id := x.(string)
+	return id == o.id
+}
+
 func (o *matchRequest) String() string {
 	return fmt.Sprintf("[%s] has request matching <<%v>>", o.desc, o.request)
 }
 
-func runTestCreateVolume(t *testing.T, description string, volumeRequest csi.CreateVolumeRequest, providerRequest packngo.VolumeCreateRequest, providerVolume packngo.Volume, success bool) {
+func runTestCreateVolume(t *testing.T, description string, volumeRequest csi.CreateVolumeRequest, providerRequest packngo.VolumeCreateRequest, providerVolume packngo.Volume, success bool, delayToSuccess int) {
 
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -104,12 +115,35 @@ func runTestCreateVolume(t *testing.T, description string, volumeRequest csi.Cre
 		Create(MatchRequest(description, providerRequest)).
 		Return(&providerVolume, &resp, nil)
 
+	// did we ask for it not to be ready a few times before it is ready?
+	if delayToSuccess > 0 {
+		// set the state to queued
+		providerVolume.State = "queued"
+		// we do it up to the maximum times
+		calls := min(delayToSuccess-1, VolumeMaxRetries)
+		for i := 0; i < calls; i++ {
+			pv := providerVolume
+			pv.State = "queued"
+			provider.EXPECT().Get(pv.ID).Return(&pv, &resp, nil)
+		}
+		// for the last one, if not beyond max, set the state to "active"
+		if delayToSuccess < VolumeMaxRetries {
+			pv := providerVolume
+			pv.State = "active"
+			provider.EXPECT().Get(pv.ID).Return(&pv, &resp, nil)
+		}
+	}
+
 	controller := NewPacketControllerServer(provider)
 
 	csiResp, err := controller.CreateVolume(context.TODO(), &volumeRequest)
-	assert.Nil(t, err, description)
-	assert.Equal(t, providerVolume.ID, csiResp.GetVolume().VolumeId, description)
-	assert.Equal(t, int64(providerVolume.Size)*packet.Gibi, csiResp.GetVolume().GetCapacityBytes(), description)
+	if success {
+		assert.Nil(t, err, description)
+		assert.Equal(t, providerVolume.ID, csiResp.GetVolume().VolumeId, description)
+		assert.Equal(t, int64(providerVolume.Size)*packet.Gibi, csiResp.GetVolume().GetCapacityBytes(), description)
+	} else {
+		assert.NotNil(t, err, description)
+	}
 }
 
 type VolumeTestCase struct {
@@ -118,6 +152,7 @@ type VolumeTestCase struct {
 	providerRequest packngo.VolumeCreateRequest
 	providerVolume  packngo.Volume
 	success         bool
+	delayToSuccess  int
 }
 
 func TestCreateVolumes(t *testing.T) {
@@ -149,8 +184,10 @@ func TestCreateVolumes(t *testing.T) {
 				Size:        173,
 				ID:          "5a3c678a-64a4-41ba-a03c-e7d74a96f06a",
 				Description: packet.NewVolumeDescription("pv-qT2QXcwbqPB3BAurt1ccs7g6SDVT0qLv").String(),
+				State:       "active",
 			},
-			success: true,
+			success:        true,
+			delayToSuccess: 0,
 		},
 		VolumeTestCase{
 			description: "verify capacity maximum",
@@ -179,8 +216,10 @@ func TestCreateVolumes(t *testing.T) {
 				Size:        packet.DefaultVolumeSizeGi,
 				ID:          "06e45c5c-8bd9-44fd-a9e4-1518105de113",
 				Description: packet.NewVolumeDescription("pv-61C4yMq09WV1ZpNIOBKHRQDKoZzyK7ZF").String(),
+				State:       "active",
 			},
-			success: true,
+			success:        true,
+			delayToSuccess: 0,
 		},
 		VolumeTestCase{
 			description: "verify capacity minimum",
@@ -209,8 +248,10 @@ func TestCreateVolumes(t *testing.T) {
 				Size:        packet.DefaultVolumeSizeGi,
 				ID:          "8c3b6f51-7045-44b8-ab6d-d6df7371471e",
 				Description: packet.NewVolumeDescription("pv-61C4yMq09WV1ZpNIOBKHRQDKoZzyK7ZF").String(),
+				State:       "active",
 			},
-			success: true,
+			success:        true,
+			delayToSuccess: 0,
 		},
 		VolumeTestCase{
 			description: "verify capacity default, performance plan type",
@@ -236,13 +277,73 @@ func TestCreateVolumes(t *testing.T) {
 				Size:        packet.DefaultVolumeSizeGi,
 				ID:          "a94ecff0-b221-4d2d-8dc4-432bed506941",
 				Description: packet.NewVolumeDescription("pv-61C4yMq09WV1ZpNIOBKHRQDKoZzyK7ZF").String(),
+				State:       "active",
 			},
-			success: true,
+			success:        true,
+			delayToSuccess: 0,
+		},
+		VolumeTestCase{
+			description: "becomes ready after 5 seconds",
+			volumeRequest: csi.CreateVolumeRequest{
+				Name:       "pv-succeedin5",
+				Parameters: map[string]string{"plan": "performance"},
+				VolumeCapabilities: []*csi.VolumeCapability{
+					&csi.VolumeCapability{
+						AccessMode: &csi.VolumeCapability_AccessMode{
+							Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+						},
+					},
+				},
+			},
+			providerRequest: packngo.VolumeCreateRequest{
+				BillingCycle: packet.BillingHourly,
+				Description:  packet.NewVolumeDescription("pv-succeedin5").String(),
+				Locked:       false,
+				Size:         packet.DefaultVolumeSizeGi,
+				PlanID:       packet.VolumePlanPerformanceID,
+			},
+			providerVolume: packngo.Volume{
+				Size:        packet.DefaultVolumeSizeGi,
+				ID:          "abcdef-22bb-d4d4-cc5f-cw1123456abcdef",
+				Description: packet.NewVolumeDescription("pv-succeedin5").String(),
+				State:       "active",
+			},
+			success:        true,
+			delayToSuccess: 7,
+		},
+		VolumeTestCase{
+			description: "never becomes ready",
+			volumeRequest: csi.CreateVolumeRequest{
+				Name:       "pv-failfail123",
+				Parameters: map[string]string{"plan": "performance"},
+				VolumeCapabilities: []*csi.VolumeCapability{
+					&csi.VolumeCapability{
+						AccessMode: &csi.VolumeCapability_AccessMode{
+							Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+						},
+					},
+				},
+			},
+			providerRequest: packngo.VolumeCreateRequest{
+				BillingCycle: packet.BillingHourly,
+				Description:  packet.NewVolumeDescription("pv-failfail123").String(),
+				Locked:       false,
+				Size:         packet.DefaultVolumeSizeGi,
+				PlanID:       packet.VolumePlanPerformanceID,
+			},
+			providerVolume: packngo.Volume{
+				Size:        packet.DefaultVolumeSizeGi,
+				ID:          "ff665c4-22bb-d4d4-cc5f-cw1123456abcdef",
+				Description: packet.NewVolumeDescription("pv-failfail123").String(),
+				State:       "active",
+			},
+			success:        false,
+			delayToSuccess: 1000,
 		},
 	}
 
 	for _, testCase := range testCases {
-		runTestCreateVolume(t, testCase.description, testCase.volumeRequest, testCase.providerRequest, testCase.providerVolume, testCase.success)
+		runTestCreateVolume(t, testCase.description, testCase.volumeRequest, testCase.providerRequest, testCase.providerVolume, testCase.success, testCase.delayToSuccess)
 	}
 }
 
@@ -565,4 +666,12 @@ func TestValidateVolumeCapabilities(t *testing.T) {
 
 	}
 
+}
+
+// min returns the smaller of x or y.
+func min(x, y int) int {
+	if x > y {
+		return y
+	}
+	return x
 }

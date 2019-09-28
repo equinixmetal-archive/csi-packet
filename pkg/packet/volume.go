@@ -66,3 +66,8 @@ func ReadDescription(serialized string) (VolumeDescription, error) {
 	err := json.Unmarshal([]byte(serialized), &desc)
 	return desc, err
 }
+
+// VolumeReady determine if a volume is in the ready state after being created
+func VolumeReady(volume *packngo.Volume) bool {
+	return volume != nil && volume.State == "active"
+}
