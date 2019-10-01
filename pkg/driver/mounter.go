@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"golang.org/x/sys/unix"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -32,12 +34,12 @@ func bindmountFs(src, target string) error {
 }
 
 func unmountFs(path string) error {
-	args := []string{path}
-	_, err := execCommand("umount", args...)
-	// if err != nil {
-	// 	execCommand("rmdir", args...)
-	// }
-	return err
+	err := unix.Unmount(path, 0)
+	// we are willing to pass on a directory that is not mounted any more
+	if err != nil && err != unix.EINVAL {
+		return err
+	}
+	return nil
 }
 
 func mountMappedDevice(device, target string) error {
