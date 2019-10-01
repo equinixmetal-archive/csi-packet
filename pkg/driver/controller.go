@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 
 	"net/http"
+	"time"
 
 	csi "github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/packethost/csi-packet/pkg/packet"
@@ -12,6 +13,13 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+)
+
+const (
+	// VolumeMaxRetries maximum number of times to retry until giving up on a volume create request
+	VolumeMaxRetries = 10
+	// VolumeRetryInterval retry interval in seconds between retries to check if a volume create request is ready
+	VolumeRetryInterval = 1 // in seconds
 )
 
 var _ csi.ControllerServer = &PacketControllerServer{}
@@ -77,6 +85,10 @@ func getPlanID(parameters map[string]string) string {
 }
 
 // CreateVolume create a volume in the given context
+// according to https://kubernetes-csi.github.io/docs/external-provisioner.html this should return
+// when the volume is successfully provisioned or fails
+// csi contains no provision for returning from a volume creation *request* and then checking later
+// thus, we must either succeed or fail before returning from this function call
 func (controller *PacketControllerServer) CreateVolume(ctx context.Context, in *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 
 	if controller == nil || controller.Provider == nil {
@@ -148,6 +160,24 @@ func (controller *PacketControllerServer) CreateVolume(ctx context.Context, in *
 	description, err = packet.ReadDescription(volume.Description)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to read csi description from provider volume")
+	}
+
+	// as described in the description to this CreateVolume method, we must wait for success or failure
+	// before returning
+	volReady := packet.VolumeReady(volume)
+	for counter := 0; !volReady && counter < VolumeMaxRetries; counter++ {
+		time.Sleep(VolumeRetryInterval * time.Second)
+		volume, httpResponse, err := controller.Provider.Get(volume.ID)
+		if err != nil {
+			return nil, err
+		}
+		if httpResponse.StatusCode != http.StatusOK && httpResponse.StatusCode != http.StatusCreated {
+			return nil, errors.Errorf("bad status from create volume, %s", httpResponse.Status)
+		}
+		volReady = packet.VolumeReady(volume)
+	}
+	if !volReady {
+		return nil, errors.Errorf("volume %s not in ready state after %d seconds", volume.Name, VolumeMaxRetries*VolumeRetryInterval)
 	}
 	out := csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
