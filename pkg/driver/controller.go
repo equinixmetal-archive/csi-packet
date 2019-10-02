@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 
 	"net/http"
+	"strconv"
 	"time"
 
 	csi "github.com/container-storage-interface/spec/lib/go/csi"
@@ -110,7 +111,7 @@ func (controller *PacketControllerServer) CreateVolume(ctx context.Context, in *
 	logger.WithFields(log.Fields{"planID": planID, "sizeRequestGiB": sizeRequestGiB}).Info("Volume requested")
 
 	// check for pre-existing volume
-	volumes, httpResponse, err := controller.Provider.ListVolumes()
+	volumes, httpResponse, err := controller.Provider.ListVolumes(nil)
 	if err != nil {
 		return nil, errors.Wrap(err, httpResponse.Status)
 	}
@@ -236,11 +237,10 @@ func (controller *PacketControllerServer) ControllerPublishVolume(ctx context.Co
 	volumeID := in.VolumeId
 
 	volume, httpResponse, err := controller.Provider.Get(volumeID)
-	if err != nil {
-		return nil, err
-	}
-	if httpResponse.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("bad status from get volume %s, %s", volumeID, httpResponse.Status)
+
+	returnError := processGetError(volumeID, httpResponse, err)
+	if returnError != nil {
+		return nil, returnError
 	}
 
 	nodes, httpResponse, err := controller.Provider.GetNodes()
@@ -265,7 +265,7 @@ func (controller *PacketControllerServer) ControllerPublishVolume(ctx context.Co
 		}
 	}
 	if nodeID == "" {
-		return nil, status.Errorf(codes.Unknown, "node not found for host/ip %s", csiNodeID)
+		return nil, status.Errorf(codes.NotFound, "node not found for host/ip %s", csiNodeID)
 	}
 	attachment, httpResponse, err := controller.Provider.Attach(volumeID, nodeID)
 	if err != nil {
@@ -348,9 +348,13 @@ func (controller *PacketControllerServer) ValidateVolumeCapabilities(ctx context
 	if in.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "VolumeId unspecified for ValidateVolumeCapabilities")
 	}
-	// if capabilities depended on the volume, we would retrieve it here
-	// testVolumeID := in.volumeID
-	// testVolume := controller.Provider.Get(testVolumeID)
+	// we always have to retrieve the volume to check that it exists; it is a CSI spec requirement
+	volumeID := in.VolumeId
+	_, httpResponse, err := controller.Provider.Get(volumeID)
+	returnError := processGetError(volumeID, httpResponse, err)
+	if returnError != nil {
+		return nil, returnError
+	}
 
 	// supported capabilities all defined here instead
 	supported := map[csi.VolumeCapability_AccessMode_Mode]bool{
@@ -376,7 +380,21 @@ func (controller *PacketControllerServer) ListVolumes(ctx context.Context, in *c
 		return nil, status.Error(codes.Internal, "controller not configured")
 	}
 
-	volumes, httpResponse, err := controller.Provider.ListVolumes()
+	// was there any pagination?
+	var listOptions *packngo.ListOptions
+	if in != nil {
+		listOptions = &packngo.ListOptions{
+			PerPage: int(in.MaxEntries),
+		}
+		if in.StartingToken != "" {
+			page, err := strconv.Atoi(in.StartingToken)
+			if err != nil {
+				return nil, status.Errorf(codes.Aborted, "starting token must be an integer to indicate which page, %s", in.StartingToken)
+			}
+			listOptions.Page = page
+		}
+	}
+	volumes, httpResponse, err := controller.Provider.ListVolumes(listOptions)
 	if err != nil {
 		return nil, errors.Wrap(err, httpResponse.Status)
 	}
@@ -448,4 +466,30 @@ func (controller *PacketControllerServer) DeleteSnapshot(context.Context, *csi.D
 // ListSnapshots list known snapshots
 func (controller *PacketControllerServer) ListSnapshots(context.Context, *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
+}
+
+// ControllerExpandVolume expand a volume
+func (controller *PacketControllerServer) ControllerExpandVolume(context.Context, *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "")
+}
+
+// take the packet error return code from Provider.Get and determine what we should do with it
+func processGetError(volumeID string, httpResponse *packngo.Response, err error) error {
+	// if we have no valid response and an error, return the error immediately
+	// if we have a valid response but not found, return the not found special code
+	// if we have a valid response but not OK, return a general error
+	// if any other error, return it
+	// otherwise, everything is fine, continue
+	switch {
+	case httpResponse == nil && err != nil:
+		return err
+	case httpResponse != nil && httpResponse.StatusCode == http.StatusNotFound:
+		return status.Errorf(codes.NotFound, "volume not found %s", volumeID)
+	case httpResponse != nil && httpResponse.StatusCode != http.StatusOK:
+		return errors.Errorf("bad status from get volume %s, %s", volumeID, httpResponse.Status)
+	case err != nil:
+		return err
+	default:
+		return nil
+	}
 }

@@ -2,14 +2,10 @@ package packet
 
 import (
 	"net"
+	"strconv"
 
 	"github.com/packethost/packngo/metadata"
 	"github.com/pkg/errors"
-
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"net/http"
 )
 
 // {
@@ -39,87 +35,45 @@ type VolumeMetadata struct {
 	IQN      string           `json:"iqn"`
 }
 
+type MetadataDriver struct {
+	BaseURL *string
+}
+
 // GetVolumeMetadata get all the metadata, extract only the parsed volume information, select the desired volume
-func GetVolumeMetadata(volumeName string) (VolumeMetadata, error) {
-
+func (m *MetadataDriver) GetVolumeMetadata(volumeName string) (VolumeMetadata, error) {
 	empty := VolumeMetadata{}
-
-	res, err := http.Get("https://metadata.packet.net/metadata")
+	volumeInfo, err := m.packngoGetPacketVolumeMetadata(volumeName)
 	if err != nil {
 		return empty, err
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return empty, err
-	}
-
-	allData := map[string]interface{}{}
-	err = json.Unmarshal([]byte(body), &allData)
-	if err != nil {
-		return empty, err
-	}
-
-	volumesUnparsed := allData["volumes"]
-	volumesAsJSON, err := json.Marshal(volumesUnparsed)
-	if err != nil {
-		return empty, err
-	}
-
-	volumes := []VolumeMetadata{}
-	err = json.Unmarshal(volumesAsJSON, &volumes)
-	if err != nil {
-		return empty, err
-	}
-
-	if err != nil {
-		return empty, err
-	}
-
-	var volumeMetaData = VolumeMetadata{}
-	for _, vdata := range volumes {
-		if vdata.Name == volumeName {
-			volumeMetaData = vdata
-			break
-		}
-	}
-	if volumeMetaData.Name == "" {
-		return empty, fmt.Errorf("volume %s not found in metadata", volumeName)
+	volumeMetaData := VolumeMetadata{
+		Name: volumeInfo.Name,
+		IPs:  volumeInfo.IPs,
+		IQN:  volumeInfo.IQN,
+		Capacity: CapacityMetaData{
+			Size: strconv.Itoa(volumeInfo.Capacity.Size),
+			Unit: volumeInfo.Capacity.Unit,
+		},
 	}
 
 	return volumeMetaData, nil
 }
 
 // GetFacilityCodeMetadata get all the metadata, return the facility code
-func GetFacilityCodeMetadata() (string, error) {
-
-	res, err := http.Get("https://metadata.packet.net/metadata")
+func (m *MetadataDriver) GetFacilityCodeMetadata() (string, error) {
+	device, err := m.getMetadata()
 	if err != nil {
 		return "", err
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return "", err
-	}
-
-	allData := map[string]interface{}{}
-	err = json.Unmarshal([]byte(body), &allData)
-	if err != nil {
-		return "", err
-	}
-
-	facilityCode, ok := allData["facility"].(string)
-	if ok {
-		return facilityCode, nil
-	}
-	return "", fmt.Errorf("Unable to read facility code")
+	return device.Facility, nil
 }
 
 // use this when packngo serialization is fixed
 // GetVolumeMetadata gets the volume metadata for a named volume
-func packngoGetPacketVolumeMetadata(volumeName string) (metadata.VolumeInfo, error) {
-	device, err := metadata.GetMetadata()
+func (m *MetadataDriver) packngoGetPacketVolumeMetadata(volumeName string) (metadata.VolumeInfo, error) {
+	device, err := m.getMetadata()
 	if err != nil {
 		return metadata.VolumeInfo{}, err
 	}
@@ -133,6 +87,7 @@ func packngoGetPacketVolumeMetadata(volumeName string) (metadata.VolumeInfo, err
 			break
 		}
 	}
+
 	if volumeMetaData.Name == "" {
 		return metadata.VolumeInfo{}, errors.Errorf("volume %s not found in metadata", volumeName)
 	}
@@ -142,12 +97,19 @@ func packngoGetPacketVolumeMetadata(volumeName string) (metadata.VolumeInfo, err
 
 // use this when packngo serialization is fixed
 // GetFacilityCodeMetadata returns the facility code
-func packngoGetPacketFacilityCodeMetadata() (string, error) {
+func (m *MetadataDriver) packngoGetPacketFacilityCodeMetadata() (string, error) {
 
-	device, err := metadata.GetMetadata()
+	device, err := m.getMetadata()
 	if err != nil {
 		return "", err
 	}
 
 	return device.Facility, nil
+}
+
+func (m *MetadataDriver) getMetadata() (*metadata.CurrentDevice, error) {
+	if m.BaseURL == nil {
+		return metadata.GetMetadata()
+	}
+	return metadata.GetMetadataFromURL(*m.BaseURL)
 }

@@ -18,16 +18,19 @@ const (
 	BillingHourly = "hourly"
 )
 
-// Config configuration for a volume provider, includes authentication token, project ID and facility ID
+// Config configuration for a volume provider, includes authentication token, project ID and facility ID, and optional override URL to talk to a different packet API endpoint
 type Config struct {
-	AuthToken  string `json:"apiKey"`
-	ProjectID  string `json:"projectId"`
-	FacilityID string `json:"facility-id"`
+	AuthToken   string  `json:"apiKey"`
+	ProjectID   string  `json:"projectId"`
+	FacilityID  string  `json:"facility-id"`
+	BaseURL     *string `json:"base-url,omitempty"`
+	MetadataURL *string `json:"metadata-url,omitempty"`
 }
 
 // VolumeProviderPacketImpl the volume provider for Packet
 type VolumeProviderPacketImpl struct {
-	config Config
+	config   Config
+	metadata MetadataDriver
 }
 
 var _ VolumeProvider = &VolumeProviderPacketImpl{}
@@ -40,7 +43,7 @@ func VolumeIDToName(id string) string {
 }
 
 // NewPacketProvider create a new VolumeProviderPacketImpl from a given Config
-func NewPacketProvider(config Config) (*VolumeProviderPacketImpl, error) {
+func NewPacketProvider(config Config, metadata MetadataDriver) (*VolumeProviderPacketImpl, error) {
 	if config.AuthToken == "" {
 		return nil, errors.New("AuthToken not specified")
 	}
@@ -51,13 +54,13 @@ func NewPacketProvider(config Config) (*VolumeProviderPacketImpl, error) {
 	logger.Info("Creating provider")
 
 	if config.FacilityID == "" {
-		facilityCode, err := GetFacilityCodeMetadata()
+		facilityCode, err := metadata.GetFacilityCodeMetadata()
 		if err != nil {
 			logger.Errorf("Cannot get facility code %v", err)
 			return nil, errors.Wrap(err, "cannot construct VolumeProviderPacketImpl")
 		}
-		c := constructClient(config.AuthToken)
-		facilities, resp, err := c.Facilities.List()
+		c := constructClient(config.AuthToken, config.BaseURL)
+		facilities, resp, err := c.Facilities.List(&packngo.ListOptions{})
 		if err != nil {
 			if resp.StatusCode == http.StatusForbidden {
 				return nil, fmt.Errorf("cannot construct VolumeProviderPacketImpl, access denied to search facilities")
@@ -84,7 +87,7 @@ func NewPacketProvider(config Config) (*VolumeProviderPacketImpl, error) {
 		return nil, fmt.Errorf("FacilityID not specified and cannot be found")
 	}
 
-	provider := VolumeProviderPacketImpl{config}
+	provider := VolumeProviderPacketImpl{config, metadata}
 	return &provider, nil
 }
 
@@ -98,7 +101,7 @@ func contains(arr []string, str string) bool {
 	return false
 }
 
-func constructClient(authToken string) *packngo.Client {
+func constructClient(authToken string, baseURL *string) *packngo.Client {
 	tr := &http.Transport{
 		MaxIdleConns:       10,
 		IdleConnTimeout:    30 * time.Second,
@@ -107,22 +110,31 @@ func constructClient(authToken string) *packngo.Client {
 	client := &http.Client{Transport: tr}
 
 	// client.Transport = logging.NewTransport("Packet", client.Transport)
+	if baseURL != nil {
+		// really should handle error, but packngo does not distinguish now or handle errors, so ignoring for now
+		client, _ := packngo.NewClientWithBaseURL(ConsumerToken, authToken, client, *baseURL)
+		return client
+	}
 	return packngo.NewClientWithAuth(ConsumerToken, authToken, client)
 }
 
 // Client() returns a new client for accessing Packet's API.
 func (p *VolumeProviderPacketImpl) client() *packngo.Client {
-	return constructClient(p.config.AuthToken)
+	return constructClient(p.config.AuthToken, p.config.BaseURL)
 }
 
 // ListVolumes wrap the packet api as an interface method
-func (p *VolumeProviderPacketImpl) ListVolumes() ([]packngo.Volume, *packngo.Response, error) {
-	return p.client().Volumes.List(p.config.ProjectID, &packngo.ListOptions{})
+func (p *VolumeProviderPacketImpl) ListVolumes(options *packngo.ListOptions) ([]packngo.Volume, *packngo.Response, error) {
+	listOptions := options
+	if listOptions == nil {
+		listOptions = &packngo.ListOptions{}
+	}
+	return p.client().Volumes.List(p.config.ProjectID, listOptions)
 }
 
 // Get wraps the packet api as an interface method
 func (p *VolumeProviderPacketImpl) Get(volumeUUID string) (*packngo.Volume, *packngo.Response, error) {
-	return p.client().Volumes.Get(volumeUUID)
+	return p.client().Volumes.Get(volumeUUID, &packngo.GetOptions{})
 }
 
 // Delete wraps the packet api as an interface method
@@ -144,13 +156,13 @@ func (p *VolumeProviderPacketImpl) Create(createRequest *packngo.VolumeCreateReq
 
 // Attach wraps the packet api as an interface method
 func (p *VolumeProviderPacketImpl) Attach(volumeID, deviceID string) (*packngo.VolumeAttachment, *packngo.Response, error) {
-	volume, httpResponse, err := p.client().Volumes.Get(volumeID)
+	volume, httpResponse, err := p.client().Volumes.Get(volumeID, &packngo.GetOptions{})
 	if err != nil || httpResponse.StatusCode != http.StatusOK {
 		return nil, httpResponse, errors.Wrap(err, "prechecking existence of volume attachment")
 	}
 	for _, attachment := range volume.Attachments {
 		if attachment.Device.ID == deviceID {
-			return p.client().VolumeAttachments.Get(attachment.ID)
+			return p.client().VolumeAttachments.Get(attachment.ID, &packngo.GetOptions{})
 		}
 	}
 	return p.client().VolumeAttachments.Create(volumeID, deviceID)

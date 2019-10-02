@@ -28,7 +28,7 @@ const (
 
 // VolumeProvider interface for a volume provider
 type VolumeProvider interface {
-	ListVolumes() ([]packngo.Volume, *packngo.Response, error)
+	ListVolumes(*packngo.ListOptions) ([]packngo.Volume, *packngo.Response, error)
 	Get(volumeID string) (*packngo.Volume, *packngo.Response, error)
 	Delete(volumeID string) (*packngo.Response, error)
 	Create(*packngo.VolumeCreateRequest) (*packngo.Volume, *packngo.Response, error)
