@@ -35,7 +35,7 @@ func (m *MockVolumeProvider) EXPECT() *MockVolumeProviderMockRecorder {
 }
 
 // ListVolumes mocks base method
-func (m *MockVolumeProvider) ListVolumes() ([]packngo.Volume, *packngo.Response, error) {
+func (m *MockVolumeProvider) ListVolumes(options *packngo.ListOptions) ([]packngo.Volume, *packngo.Response, error) {
 	ret := m.ctrl.Call(m, "ListVolumes")
 	ret0, _ := ret[0].([]packngo.Volume)
 	ret1, _ := ret[1].(*packngo.Response)

@@ -466,10 +466,12 @@ func TestPublishVolume(t *testing.T) {
 	nodeIPAddress.Address = csiNodeIP
 	nodeResp := []packngo.Device{
 		packngo.Device{
-			Hostname: csiNodeName,
-			ID:       nodeID,
-			Network: []*packngo.IPAddressAssignment{
-				&nodeIPAddress,
+			DeviceRaw: packngo.DeviceRaw{
+				Hostname: csiNodeName,
+				ID:       nodeID,
+				Network: []*packngo.IPAddressAssignment{
+					&nodeIPAddress,
+				},
 			},
 		},
 	}
@@ -482,18 +484,14 @@ func TestPublishVolume(t *testing.T) {
 				Volume: packngo.Volume{
 					ID: providerVolumeID,
 				},
-				Device: packngo.Device{
-					ID: nodeID,
-				},
+				Device: packngo.Device{DeviceRaw: packngo.DeviceRaw{ID: nodeID}},
 			},
 		},
 	}
 	attachResp := packngo.VolumeAttachment{
 		ID:     attachmentID,
 		Volume: volumeResp,
-		Device: packngo.Device{
-			ID: nodeID,
-		},
+		Device: packngo.Device{DeviceRaw: packngo.DeviceRaw{ID: nodeID}},
 	}
 	provider.EXPECT().GetNodes().Return(nodeResp, &resp, nil)
 
@@ -539,9 +537,7 @@ func TestUnpublishVolume(t *testing.T) {
 				Volume: packngo.Volume{
 					ID: providerVolumeID,
 				},
-				Device: packngo.Device{
-					ID: nodeID,
-				},
+				Device: packngo.Device{DeviceRaw: packngo.DeviceRaw{ID: nodeID}},
 			},
 		},
 	}
@@ -660,6 +656,7 @@ func TestValidateVolumeCapabilities(t *testing.T) {
 			VolumeId:           providerVolumeID,
 		}
 
+		provider.EXPECT().Get(providerVolumeID)
 		resp, err := controller.ValidateVolumeCapabilities(context.TODO(), request)
 		assert.Nil(t, err)
 		assert.Equal(t, testCase.packetSupported, resp.Confirmed, testCase.description)

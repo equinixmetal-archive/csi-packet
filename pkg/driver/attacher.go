@@ -20,35 +20,22 @@ const (
 	multipathBindings = "/etc/multipath/bindings"
 )
 
-// generic execCommand function which logs on error
-func execCommand(command string, args ...string) ([]byte, error) {
-	out, err := exec.Command(command, args...).CombinedOutput()
-	if err != nil {
-		log.WithFields(log.Fields{"command": command, "args": strings.Join(args, " "), "out": string(out[:]), "error": err.Error()}).Error("Error")
-		return nil, err
-	}
-	return out, nil
+// IscsiAdm interface provides methods of executing iscsi admin commands
+type Attacher interface {
+	GetScsiID(string) (string, error)
+	GetDevice(string, string) (string, error)
+	Discover(string) error
+	HasSession(string, string) (bool, error)
+	Login(string, string) error
+	Logout(string, string) error
+	MultipathReadBindings() (map[string]string, map[string]string, error)
+	MultipathWriteBindings(map[string]string) error
 }
 
-// multipath hangs when run inside a container, but is safe to terminate
-func multipath(args ...string) (string, error) {
-
-	ctx, cancel := context.WithTimeout(context.Background(), multipathTimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, multipathExec, args...)
-
-	output, err := cmd.Output()
-
-	if ctx.Err() == context.DeadlineExceeded {
-		log.WithFields(log.Fields{"timeout": multipathTimeout, "args": strings.Join(args, " ")}).Info("multipath timed out")
-		return string(output), nil
-	}
-
-	return string(output), err
+type AttacherImpl struct {
 }
 
-func getScsiID(devicePath string) (string, error) {
+func (i *AttacherImpl) GetScsiID(devicePath string) (string, error) {
 	args := []string{"-g", "-u", "-d", devicePath}
 	out, err := execCommand("/lib/udev/scsi_id", args...)
 	if err != nil {
@@ -58,7 +45,7 @@ func getScsiID(devicePath string) (string, error) {
 }
 
 // look for file that matches portal, iqn, look up what it links to
-func getDevice(portal, iqn string) (string, error) {
+func (i *AttacherImpl) GetDevice(portal, iqn string) (string, error) {
 
 	pattern := fmt.Sprintf("%s*%s*%s*", "/dev/disk/by-path/", portal, iqn)
 
@@ -86,14 +73,14 @@ func getDevice(portal, iqn string) (string, error) {
 	return source, nil
 }
 
-func iscsiadminDiscover(ip string) error {
+func (i *AttacherImpl) Discover(ip string) error {
 	args := []string{"--mode", "discovery", "--portal", ip, "--type", "sendtargets", "--discover"}
 	_, err := execCommand("iscsiadm", args...)
 	return err
 }
 
-// iscsiadminHasSession checks to see if the session exists, may log an extraneous error if the seesion does not exist
-func iscsiadminHasSession(ip, iqn string) (bool, error) {
+// HasSession checks to see if the session exists, may log an extraneous error if the seesion does not exist
+func (i *AttacherImpl) HasSession(ip, iqn string) (bool, error) {
 	args := []string{"--mode", "session"}
 	out, err := execCommand("iscsiadm", args...)
 	if err != nil {
@@ -113,8 +100,8 @@ func iscsiadminHasSession(ip, iqn string) (bool, error) {
 	return false, nil
 }
 
-func iscsiadminLogin(ip, iqn string) error {
-	hasSession, err := iscsiadminHasSession(ip, iqn)
+func (i *AttacherImpl) Login(ip, iqn string) error {
+	hasSession, err := i.HasSession(ip, iqn)
 	if err != nil {
 		return err
 	}
@@ -126,8 +113,8 @@ func iscsiadminLogin(ip, iqn string) error {
 	return err
 }
 
-func iscsiadminLogout(ip, iqn string) error {
-	hasSession, err := iscsiadminHasSession(ip, iqn)
+func (i *AttacherImpl) Logout(ip, iqn string) error {
+	hasSession, err := i.HasSession(ip, iqn)
 	if err != nil {
 		return err
 	}
@@ -142,7 +129,7 @@ func iscsiadminLogout(ip, iqn string) error {
 // read the bindings from /etc/multipath/bindings
 // separating into keep/discard sets
 // return elements map from volume name to scsi id
-func readBindings() (map[string]string, map[string]string, error) {
+func (i *AttacherImpl) MultipathReadBindings() (map[string]string, map[string]string, error) {
 
 	var bindings = map[string]string{}
 	var discard = map[string]string{}
@@ -180,8 +167,8 @@ func readBindings() (map[string]string, map[string]string, error) {
 	return bindings, discard, nil
 }
 
-// read the bindings to /etc/multipath/bindings
-func writeBindings(bindings map[string]string) error {
+// write the bindings to /etc/multipath/bindings
+func (i *AttacherImpl) MultipathWriteBindings(bindings map[string]string) error {
 
 	f, err := os.Create(multipathBindings)
 	if err != nil {
@@ -195,4 +182,22 @@ func writeBindings(bindings map[string]string) error {
 	}
 	writer.Flush()
 	return nil
+}
+
+// multipath hangs when run inside a container, but is safe to terminate
+func multipath(args ...string) (string, error) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), multipathTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, multipathExec, args...)
+
+	output, err := cmd.Output()
+
+	if ctx.Err() == context.DeadlineExceeded {
+		log.WithFields(log.Fields{"timeout": multipathTimeout, "args": strings.Join(args, " ")}).Info("multipath timed out")
+		return string(output), nil
+	}
+
+	return string(output), err
 }

@@ -2,7 +2,7 @@ package driver
 
 import (
 	"github.com/packethost/csi-packet/pkg/packet"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 
@@ -15,13 +15,15 @@ var _ csi.NodeServer = &PacketNodeServer{}
 
 // PacketNodeServer represents a packet node
 type PacketNodeServer struct {
-	Driver *PacketDriver
+	Driver         *PacketDriver
+	MetadataDriver *packet.MetadataDriver
 }
 
 // NewPacketNodeServer create a new PacketNodeServer
-func NewPacketNodeServer(driver *PacketDriver) *PacketNodeServer {
+func NewPacketNodeServer(driver *PacketDriver, metadata *packet.MetadataDriver) *PacketNodeServer {
 	return &PacketNodeServer{
-		Driver: driver,
+		Driver:         driver,
+		MetadataDriver: metadata,
 	}
 }
 
@@ -32,12 +34,13 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 	// validate arguments
 	// this is the full packet UUID, not the abbreviated name...
 	// volumeID := in.VolumeId
-	volumeName := in.PublishContext["VolumeName"]
-	if volumeName == "" {
+	volumeID := in.PublishContext["VolumeName"]
+	if volumeID == "" {
 		return nil, status.Error(codes.InvalidArgument, "VolumeName unspecified for NodeStageVolume")
 	}
 
-	volumeMetaData, err := packet.GetVolumeMetadata(volumeName)
+	volumeName := packet.VolumeIDToName(volumeID)
+	volumeMetaData, err := nodeServer.MetadataDriver.GetVolumeMetadata(volumeName)
 	if err != nil {
 		nodeServer.Driver.Logger.Errorf("NodeStageVolume: %v", err)
 		return nil, status.Errorf(codes.Unknown, "metadata error, %s", err.Error())
@@ -59,7 +62,7 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 		}
 	}
 
-	logger := nodeServer.Driver.Logger.WithFields(logrus.Fields{
+	logger := nodeServer.Driver.Logger.WithFields(log.Fields{
 		"volume_id":           in.VolumeId,
 		"volume_name":         volumeName,
 		"staging_target_path": in.StagingTargetPath,
@@ -69,12 +72,12 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 
 	// discover and log in to iscsiadmin
 	for _, ip := range volumeMetaData.IPs {
-		err = iscsiadminDiscover(ip.String()) // iscsiadm --mode discovery --type sendtargets --portal 10.144.144.226 --discover
+		err = nodeServer.Driver.Attacher.Discover(ip.String()) // iscsiadm --mode discovery --type sendtargets --portal 10.144.144.226 --discover
 		if err != nil {
 			logger.Infof("isciadmin discover error, %+v", err)
 			return nil, status.Errorf(codes.Unknown, "isciadmin discover error, %+v", err)
 		}
-		err = iscsiadminLogin(ip.String(), volumeMetaData.IQN)
+		err = nodeServer.Driver.Attacher.Login(ip.String(), volumeMetaData.IQN)
 		if err != nil {
 			logger.Infof("isciadmin login error, %+v", err)
 			return nil, status.Errorf(codes.Unknown, "isciadmin login error, %+v", err)
@@ -82,23 +85,23 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 	}
 
 	// configure multimap
-	devicePath, err := getDevice(volumeMetaData.IPs[0].String(), volumeMetaData.IQN)
+	devicePath, err := nodeServer.Driver.Attacher.GetDevice(volumeMetaData.IPs[0].String(), volumeMetaData.IQN)
 	if err != nil {
 		logger.Infof("devicePath error, %+v", err)
 		return nil, status.Errorf(codes.Unknown, "devicePath error, %+v", err)
 	}
-	scsiID, err := getScsiID(devicePath)
+	scsiID, err := nodeServer.Driver.Attacher.GetScsiID(devicePath)
 	if err != nil {
 		logger.Infof("scsiID error, path %s, %+v", devicePath, err)
 		return nil, status.Errorf(codes.Unknown, "scsiIDerror, %+v", err)
 	}
-	bindings, discards, err := readBindings()
+	bindings, discards, err := nodeServer.Driver.Attacher.MultipathReadBindings()
 	if err != nil {
 		logger.Infof("readBindings error, %+v", err)
 		return nil, status.Errorf(codes.Unknown, "readBindings error, %+v", err)
 	}
 	bindings[volumeName] = scsiID
-	err = writeBindings(bindings)
+	err = nodeServer.Driver.Attacher.MultipathWriteBindings(bindings)
 	if err != nil {
 		logger.Infof("writeBindings error, %+v", err)
 		return nil, status.Errorf(codes.Unknown, "writeBindings error, %+v", err)
@@ -114,13 +117,13 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 		logger.Infof("empty multipath check for %s", devicePath)
 	}
 
-	blockInfo, err := getMappedDevice(volumeName)
+	blockInfo, err := nodeServer.Driver.Mounter.GetMappedDevice(volumeName)
 	if err != nil {
 		logger.Infof("getMappedDevice error, %+v", err)
 		return nil, status.Errorf(codes.Unknown, "getMappedDevice error, %+v", err)
 	}
 	if blockInfo.FsType == "" {
-		err = formatMappedDevice(volumeName)
+		err = nodeServer.Driver.Mounter.FormatMappedDevice(volumeName)
 		if err != nil {
 			logger.Infof("formatMappedDevice error, %+v", err)
 			return nil, status.Errorf(codes.Unknown, "formatMappedDevice error, %+v", err)
@@ -128,7 +131,7 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 	}
 
 	logger.Info("mounting mapped device")
-	err = mountMappedDevice(volumeName, in.StagingTargetPath)
+	err = nodeServer.Driver.Mounter.MountMappedDevice(volumeName, in.StagingTargetPath)
 	if err != nil {
 		logger.Infof("mountMappedDevice error, %v", err)
 		return nil, status.Errorf(codes.Unknown, "mountMappedDevice error, %+v", err)
@@ -144,29 +147,29 @@ func (nodeServer *PacketNodeServer) NodeUnstageVolume(ctx context.Context, in *c
 	nodeServer.Driver.Logger.Info("NodeUnstageVolume called")
 
 	if in.VolumeId == "" {
-		return nil, status.Error(codes.InvalidArgument, "VolumeId unspecified for NodeUnpublishVolume")
+		return nil, status.Error(codes.InvalidArgument, "VolumeId unspecified for NodeUnstageVolume")
 	}
 	if in.StagingTargetPath == "" {
-		return nil, status.Error(codes.InvalidArgument, "StagingTargetPath unspecified for NodeUnpublishVolume")
+		return nil, status.Error(codes.InvalidArgument, "StagingTargetPath unspecified for NodeUnstageVolume")
 	}
 
 	volumeID := in.VolumeId
 	volumeName := packet.VolumeIDToName(volumeID)
 
-	logger := nodeServer.Driver.Logger.WithFields(logrus.Fields{
+	logger := nodeServer.Driver.Logger.WithFields(log.Fields{
 		"volume_id":           in.VolumeId,
 		"volume_name":         volumeName,
 		"staging_target_path": in.StagingTargetPath,
 		"method":              "NodeUnstageVolume",
 	})
 
-	err := unmountFs(in.StagingTargetPath)
+	err := nodeServer.Driver.Mounter.Unmount(in.StagingTargetPath)
 	if err != nil {
 		return nil, status.Errorf(codes.Unknown, "unmounting error, %v", err)
 	}
 	logger.Infof("Unmounted staging target")
 
-	volumeMetaData, err := packet.GetVolumeMetadata(volumeName)
+	volumeMetaData, err := nodeServer.MetadataDriver.GetVolumeMetadata(volumeName)
 	if err != nil {
 		return nil, status.Errorf(codes.Unknown, "metadata access error, %v ", err)
 	}
@@ -176,12 +179,12 @@ func (nodeServer *PacketNodeServer) NodeUnstageVolume(ctx context.Context, in *c
 	}
 
 	// remove multipath
-	bindings, discards, err := readBindings()
+	bindings, discards, err := nodeServer.Driver.Attacher.MultipathReadBindings()
 	if err != nil {
 		return nil, status.Errorf(codes.Unknown, "multipath error, %v", err)
 	}
 	delete(bindings, volumeName)
-	err = writeBindings(bindings)
+	err = nodeServer.Driver.Attacher.MultipathWriteBindings(bindings)
 	if err != nil {
 		return nil, status.Errorf(codes.Unknown, "multipath error, %v", err)
 	}
@@ -192,8 +195,8 @@ func (nodeServer *PacketNodeServer) NodeUnstageVolume(ctx context.Context, in *c
 	multipath("-f", volumeName)
 
 	for _, ip := range volumeMetaData.IPs {
-		logger.WithFields(logrus.Fields{"ip": ip, "iqn": volumeMetaData.IQN}).Info("iscsiadmin logout")
-		err = iscsiadminLogout(ip.String(), volumeMetaData.IQN)
+		logger.WithFields(log.Fields{"ip": ip, "iqn": volumeMetaData.IQN}).Info("iscsiadmin logout")
+		err = nodeServer.Driver.Attacher.Logout(ip.String(), volumeMetaData.IQN)
 		if err != nil {
 			return nil, status.Errorf(codes.Unknown, "iscsiadminLogout error, %v", err)
 		}
@@ -219,14 +222,14 @@ func (nodeServer *PacketNodeServer) NodePublishVolume(ctx context.Context, in *c
 		return nil, status.Error(codes.InvalidArgument, "StagingTargetPath unspecified for NodeStageVolume")
 	}
 
-	logger := nodeServer.Driver.Logger.WithFields(logrus.Fields{
+	logger := nodeServer.Driver.Logger.WithFields(log.Fields{
 		"volume_id":           in.VolumeId,
 		"target_path":         in.TargetPath,
 		"staging_target_path": in.StagingTargetPath,
 		"method":              "NodePublishVolume",
 	})
 
-	err := bindmountFs(in.GetStagingTargetPath(), in.GetTargetPath())
+	err := nodeServer.Driver.Mounter.Bindmount(in.GetStagingTargetPath(), in.GetTargetPath())
 	if err != nil {
 		return nil, status.Errorf(codes.Unknown, "bind mount error, %+v", err)
 	}
@@ -246,13 +249,13 @@ func (nodeServer *PacketNodeServer) NodeUnpublishVolume(ctx context.Context, in 
 		return nil, status.Error(codes.InvalidArgument, "TargetPath unspecified for NodeUnpublishVolume")
 	}
 
-	logger := nodeServer.Driver.Logger.WithFields(logrus.Fields{
+	logger := nodeServer.Driver.Logger.WithFields(log.Fields{
 		"volume_id":   in.VolumeId,
 		"target_path": in.TargetPath,
 		"method":      "NodePublishVolume",
 	})
 
-	err := unmountFs(in.GetTargetPath())
+	err := nodeServer.Driver.Mounter.Unmount(in.GetTargetPath())
 	if err != nil {
 		return nil, status.Errorf(codes.Unknown, "unmount error, %+v", err)
 	}
@@ -303,4 +306,9 @@ func (nodeServer *PacketNodeServer) NodeGetCapabilities(ctx context.Context, in 
 	return &csi.NodeGetCapabilitiesResponse{
 		Capabilities: nsc,
 	}, nil
+}
+
+// NodeExpandVolume expand a volume
+func (nodeServer *PacketNodeServer) NodeExpandVolume(context.Context, *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "")
 }
