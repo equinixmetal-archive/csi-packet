@@ -11,13 +11,14 @@ var (
 
 // PacketDriver driver for packet cloud
 type PacketDriver struct {
-	name     string
-	nodeID   string
-	endpoint string
-	config   packet.Config
-	Logger   *log.Entry
-	Attacher Attacher
-	Mounter  Mounter
+	name        string
+	nodeID      string
+	endpoint    string
+	config      packet.Config
+	Logger      *log.Entry
+	Attacher    Attacher
+	Mounter     Mounter
+	Initializer Initializer
 }
 
 // NewPacketDriver create a new PacketDriver
@@ -30,8 +31,9 @@ func NewPacketDriver(endpoint, nodeID string, config packet.Config) (*PacketDriv
 		config:   config,
 		Logger:   log.WithFields(log.Fields{"node": nodeID, "endpoint": endpoint}),
 		// default attacher and mounter
-		Attacher: &AttacherImpl{},
-		Mounter:  &MounterImpl{},
+		Attacher:    &AttacherImpl{},
+		Mounter:     &MounterImpl{},
+		Initializer: &InitializerImpl{},
 	}, nil
 }
 
