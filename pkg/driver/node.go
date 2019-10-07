@@ -32,14 +32,12 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 
 	nodeServer.Driver.Logger.Info("NodeStageVolume called")
 	// validate arguments
-	// this is the full packet UUID, not the abbreviated name...
-	// volumeID := in.VolumeId
-	volumeID := in.PublishContext["VolumeName"]
-	if volumeID == "" {
+	// this is the abbreviated name...
+	volumeName := in.PublishContext["VolumeName"]
+	if volumeName == "" {
 		return nil, status.Error(codes.InvalidArgument, "VolumeName unspecified for NodeStageVolume")
 	}
 
-	volumeName := packet.VolumeIDToName(volumeID)
 	volumeMetaData, err := nodeServer.MetadataDriver.GetVolumeMetadata(volumeName)
 	if err != nil {
 		nodeServer.Driver.Logger.Errorf("NodeStageVolume: %v", err)
@@ -74,13 +72,13 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 	for _, ip := range volumeMetaData.IPs {
 		err = nodeServer.Driver.Attacher.Discover(ip.String()) // iscsiadm --mode discovery --type sendtargets --portal 10.144.144.226 --discover
 		if err != nil {
-			logger.Infof("isciadmin discover error, %+v", err)
-			return nil, status.Errorf(codes.Unknown, "isciadmin discover error, %+v", err)
+			logger.Infof("iscsiadmin discover error, %+v", err)
+			return nil, status.Errorf(codes.Unknown, "iscsiadmin discover error, %+v", err)
 		}
 		err = nodeServer.Driver.Attacher.Login(ip.String(), volumeMetaData.IQN)
 		if err != nil {
-			logger.Infof("isciadmin login error, %+v", err)
-			return nil, status.Errorf(codes.Unknown, "isciadmin login error, %+v", err)
+			logger.Infof("iscsiadmin login error, %+v", err)
+			return nil, status.Errorf(codes.Unknown, "iscsiadmin login error, %+v", err)
 		}
 	}
 

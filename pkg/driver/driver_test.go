@@ -261,7 +261,7 @@ func (f *fakeAPI) createVolumeHandler(w http.ResponseWriter, r *http.Request) {
 	uuid := uuid.New().String()
 	vol := packngo.Volume{
 		ID:          uuid,
-		Name:        uuid,
+		Name:        packet.VolumeIDToName(uuid),
 		Description: cvr.Description,
 		Size:        cvr.Size,
 		State:       "active",
