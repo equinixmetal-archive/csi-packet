@@ -4,10 +4,14 @@ BUILD_IMAGE?=packethost/csi-packet
 BUILDER_IMAGE?=packethost/go-build
 PACKAGE_NAME?=github.com/packethost/csi-packet
 GIT_VERSION?=$(shell git log -1 --format="%h")
+VERSION?=$(GIT_VERSION)
 RELEASE_TAG ?= $(shell git tag --points-at HEAD)
+ifneq (,$(RELEASE_TAG))
+VERSION=$(RELEASE_TAG)-$(VERSION)
+endif
 GO_FILES := $(shell find . -type f -not -path './vendor/*' -name '*.go')
 FROMTAG ?= latest
-LDFLAGS ?= -ldflags '-extldflags "-static"'
+LDFLAGS ?= -ldflags '-extldflags "-static" -X "$(PACKAGE_NAME)/pkg/version.VERSION=$(VERSION)"'
 
 # which arches can we support
 ARCHES=$(patsubst Dockerfile.%,%,$(wildcard Dockerfile.*))
