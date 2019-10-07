@@ -1,116 +1,124 @@
-# Container Storage Interface (CSI) plugin for Packet
+# Kubernetes Container Storage Interface (CSI) plugin for Packet
 
-The CSI Packet plugin allows the creation and mounting of packet storage volumes as
-persistent volume claims in a kubernetes cluster.
+`csi-packet` is the Kubernetes CSI implementation for Packet. Read more about the CSI [here](https://kubernetes-csi.github.io/docs/).
 
-## Deploy
-Read how to deploy the Kubernetes CSI plugin for Packet [here](deploy//)!
+## Requirements
 
-## Design
-The basic refernce for Kubernetes CSI is found at https://kubernetes-csi.github.io/docs/
+At the current state of Kubernetes, running the CSI requires a few things.
+Please read through the requirements carefully as they are critical to running the CSI on a Kubernetes cluster.
 
-A typical sequence of the tasks performed by the Controller and Node components is
+### Version
 
- - **Create**          *Controller.CreateVolume*
-    - **Attach**       *Controller.ControllerPublish*
-        - **Mount, Format**   *Node.NodeStageVolume* (called once only per volume)
-            - **Bind Mount**   *Node.NodePublishVolume*
-            - **Bind Unmount** *Node.NodeUnpublishVolume*
-        - **Unmount**          *Node.NodeUnstageVolume*
-    - **Detach**       *Controller.ControllerUnpublish*
- - **Destroy**         *Controller.DeleteVolum*e
+Recommended versions of Packet CSI based on your Kubernetes version:
+* Packet CSI version v0.0.2 supports Kubernetes version >=v1.10
+
+### Privilege
+
+In order for CSI to work, your kubernetes cluster **must** allow privileged pods. Both the `kube-apiserver` and the kubelet must start with the flag `--allow-privileged=true`.
 
 
-## System configuration
+## Deploying in a kubernetes cluster
 
-The plugin node component require particular configuration of the packet host with regard to the services that are running.
-It relies on iscsid being configured correctly with the initiator name, and up multipathd running with a configuration that includes `user_friendly_names     yes`  This setup is not perfomed by the plugin.
+### Token
 
-## Deployment
+To run `csi-packet`, you need your Packet api key and project ID that your cluster is running in.
+If you are already logged in, you can create one by clicking on your profile in the upper right then "API keys".
+To get project ID click into the project that your cluster is under and select "project settings" from the header.
+Under General you will see "Project ID". Once you have this information you will be able to fill in the config needed for the CCM.
 
-The files found in `deploy/kubernetes/` define the deployment process, which follows the approach diagrammed in the [design proposal](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/storage/container-storage-interface.md#recommended-mechanism-for-deploying-csi-drivers-on-kubernetes)
+#### Create config
 
-The documentation for performing the deployment is [here](./deploy/).
+Copy [deploy/template/secret.yaml](./deploy/template/secret.yaml) to a local file:
 
-### Packet credentials
+```bash
+cp deploy/template/secret.yaml packet-cloud-config.yaml
+```
 
-Packet credentials are used by the controller to manage volumes.  They are configured with a json-formatted secret which contains
+Replace the placeholder in the copy with your token. When you're done, the `packet-cloud-config.yaml` should look something like this:
 
-* an authetication token
-* a project id
-* a facility id
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: packet-cloud-config
+  namespace: kube-system
+stringData:
+  cloud-sa.json: |
+    {
+    "apiKey": "abc123abc123abc123",
+    "projectID": "abc123abc123abc123"
+    }
+```
 
-The cluster is assumed to reside wholly in one facility, so the controller includes that facility id in all of the volume-related api calls.
+Then run:
 
-### RBAC
+```bash
+kubectl apply -f ./packet-cloud-config.yaml`
+```
 
-The file [deploy/kubernetes/setup.yaml](./deploy/kubernetes/setup.yaml) contains the `ServiceAccount, `Role` and `RoleBinding` definitions used by the various components.
+You can confirm that the secret was created in the `kube-system` with the following:
 
-### Deployment
+```bash
+$ kubectl -n kube-system get secrets packet-cloud-config
+NAME                  TYPE                                  DATA      AGE
+packet-cloud-config   Opaque                                1         2m
+```
 
-The controller is deployed as a `StatefulSet` to ensure that there is a single instance of the pod.  The node is deployed as a `DaemonSet`, which will install an instance of the pod on every un-tainted node.  In most cluster deployments, the master node will have a `node-role.kubernetes.io/master:NoSchedule` taint and so the csi-packet plugin will not operate there.
+**Note:** This is the _exact_ same config as used for [Packet CCM](https://github.com/packethost/packet-ccm), allowing you to create a single set of credentials in a single secret to support both.
 
-### Helper sidecar containers
+### Set up Driver
 
-The CSI plugin framework is designed to be agnostic with respect to the Container Orchestrator system, and so there is no direct communication between the CSI plugin and the kubernetes api.  Instead, the CSI project provides a number of sidecar containers which mediate beween the plugin and kubernetes.
+```
+$ kubectl -n kube-system apply -f deploy/kubernetes/setup.yaml
+$ kubectl -n kube-system apply -f deploy/kubernetes/node.yaml
+$ kubectl -n kube-system apply -f deploy/kubernetes/controller.yaml
+```
 
-The controller deployment uses
+### Run demo (optional):
 
-  * [external-attacher](https://github.com/kubernetes-csi/external-attacher)
-  * [external-provisioner](https://github.com/kubernetes-csi/external-provisioner)
+```
+$ kubectl apply -f deploy/demo/demo-deployment.yaml
+```
 
-which communicate with the kubernetes api within the cluster, and communicate with the csi-packet plugin through a unix domain socket shared in the pod.
+## Command-Line Options
 
-The node deployment uses
+You can run the binary with `--help` to get command-line options. Important options are:
 
-  * [driver-registrar](https://github.com/kubernetes-csi/driver-registrar)
+* `--endpoint=<path>` : (required) path to the kubelet registration socket. According to the spec, this should be `/var/lib/kubelet/plugins/<unique_provider_name>/csi.sock`. Thus we **strongly** recommend you mount it at `/var/lib/kubelet/plugins/net.packet.csi/csi.sock`. The deployment files in this repository assume that path.
+* `--nodeid=<name>` : (required) name of the node as understood by the kubernetes cluster. Normally retrieved via the Kubernetes [downward API](https://kubernetes.io/docs/tasks/inject-data-application/downward-api-volume-expose-pod-information/) as `spec.nodeName`
+* `--v=<level>` : (optional) verbosity level per [logrus](https://github.com/sirupsen/logrus)
+* `--config=<path>` : (optional) path to config file, in json format, that contains the Packet configuration information as set below.
 
-which advertises the csi-packet driver to the cluster.  There is also by unix domain socket communciation channel, but in this case it is a host-mounted directory in order to permit the kubelet process to interact with the plugin.
+### Config File Format
 
-TODO: incorporate the liveness prob
+The configuration file passed to `--config` must be a json file, and should contain the following keys:
 
-* [liveness-probe](https://github.com/kubernetes-csi/livenessprobe)
+* `apiKey` : packet API key to use
+* `projectID` : packet project ID
+* `facilityID` : packet facility ID
 
-### Mounted volumes and privilege
+### Environment Variables
 
-The node processes must interact with services running on the host in order to connect, mount and format the packet volumes. These interactions require a particular pod configuration.  The driver invokes the *iscsiadm* and *multipath* client processes and they must communicate with the *iscisd* and *multipathd* systemd services.  In consequence, the pod
- - uses `hostNetwork: true`
- - uses `privileged: true`
- - mounts `/etc`
- - mounts `/dev`
- - mounts `/var/lib/iscsi`
- - mounts `/sys/devices`
- - mounts `/run/udev/`
- - mounts `/var/lib/kubelet`
- - mounts `/csi`
+In addition to passing information via the config file, you can set it in environment variables. Environment variables _always_ override any setting in the config file. The variables are:
 
+* `PACKET_API_KEY`
+* `PACKET_PROJECT_ID`
+* `PACKET_FACILITY_ID`
 
-## Further documentation
+## Running the csi-sanity tests
 
-See additional documents in the `docs/` directory
+[csi-sanity](https://github.com/kubernetes-csi/csi-test/tree/master/cmd/csi-sanity) is a set of integration tests that can be run on a host where a csi-plugin is running.
+In a kubernetes cluster, _csi-sanity_ can be run on a node and communicate with the daemonset node controller running there.
 
-## Caveat
+The steps are as follows
 
-The plugin at present is far from production assurance, and requires testing and hardening. Even listing the known issues is premature.
+1. Install the `csi-packet` plugin as above into a kubernetes cluster, but use `node_controller_sanity_test.yaml` instead of `node.yaml`.
+   The crucial difference is to start the driver with the packet credentials so that the csi-controller is running.
+2. `ssh` to a node, install a golang environment and build the csi-sanity binaries.
+3. Run `./csi-sanity --ginkgo.v --csi.endpoint=/var/lib/kubelet/plugins/net.packet.csi/csi.sock`
 
-## Development
-The Makefile builds locally using your own installed `go`, or in a container via `docker run`. 
+Please report any failures to this repository.
 
-The following are standard commands:
+## Build and Design
 
-* `make build ARCH=$(ARCH)` - ensure vendor dependencies and build the single CSI binary as `dist/bin/packet-cloud-storage-interface-$(ARCH)`
-* `make build-all` - ensure vendor dependencies and build the single CSI binary for all supported architectures. We build a binary for each arch for which a `Dockerfile.<arch>` exists in this directory.
-* `make build ARCH=$(ARCH) DOCKERBUILD=true` - ensure vendor dependencies and build the CSI binary as above, while performing the build inside a docker container
-* `make build-all` - ensure vendor dependencies and build the CSI binary for all supported architectures.
-* `make image ARCH=$(ARCH)` - make an OCI image for the provided ARCH
-* `make image-all` - make an OCI image for all supported architectures
-* `make ci` - build, test and create an OCI image for all supported architectures. This is what the CI system runs.
-* `make cd` - deploy images for all supported architectures, as well as a multi-arch manifest..
-* `make release` - deploy tagged release images for all supported architectures, as well as a multi-arch manifest..
-
-All images are tagged `$(TAG)-$(ARCH)`, where:
-
-* `TAG` = the image tag, which always includes the current branch when merged into `master`, and the short git hash. For git tags that are applied in master via `make release`, it also is the git tag. Thus a normal merge releases two image tags - git hash and `master` - while adding a git tag to release formally creates a third one.
-* `ARCH` = the architecture of the image
-
-In addition, we use multi-arch manifests for "archless" releases, e.g. `:3456abcd` or `:v1.2.3` or `:master`.
+To build the Packet CSI and understand its design, please see [BUILD.md](./BUILD.md).
