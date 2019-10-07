@@ -25,6 +25,7 @@ import (
 
 	"github.com/packethost/csi-packet/pkg/driver"
 	"github.com/packethost/csi-packet/pkg/packet"
+	"github.com/packethost/csi-packet/pkg/version"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -54,6 +55,8 @@ func init() {
 }
 
 func main() {
+	// log our starting point
+	log.WithFields(log.Fields{"version": version.VERSION}).Info("started")
 
 	flag.CommandLine.Parse([]string{})
 
