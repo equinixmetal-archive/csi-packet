@@ -18,16 +18,20 @@ const (
 	multipathTimeout  = 10 * time.Second
 	multipathExec     = "/sbin/multipath"
 	multipathBindings = "/etc/multipath/bindings"
+	iscsiIface        = "kubernetescsi0"
 )
 
 // IscsiAdm interface provides methods of executing iscsi admin commands
 type Attacher interface {
-	GetScsiID(string) (string, error)
-	GetDevice(string, string) (string, error)
+	// these interact with iscsiadm and the iscsi target
 	Discover(string) error
 	HasSession(string, string) (bool, error)
 	Login(string, string) error
 	Logout(string, string) error
+	// these check locally on the local host
+	GetScsiID(string) (string, error)
+	GetDevice(string, string) (string, error)
+	// these do multipath
 	MultipathReadBindings() (map[string]string, map[string]string, error)
 	MultipathWriteBindings(map[string]string) error
 }
@@ -74,14 +78,57 @@ func (i *AttacherImpl) GetDevice(portal, iqn string) (string, error) {
 }
 
 func (i *AttacherImpl) Discover(ip string) error {
-	args := []string{"--mode", "discovery", "--portal", ip, "--type", "sendtargets", "--discover"}
-	_, err := execCommand("iscsiadm", args...)
+	// does the desired iface exist?
+	args := []string{"--mode", "iface", "-o", "show"}
+	out, err := execCommand("iscsiadm", args...)
+	// if an error was returned, we cannot do much
+	if err != nil {
+		return fmt.Errorf("unable to list all ifaces: %v", err)
+	}
+	// parse through them to find the one we want
+	pat, err := regexp.Compile(`(?m)^` + iscsiIface + ` .*`)
+	if err != nil {
+		return fmt.Errorf("error compiling pattern: %v", err)
+	}
+	found := pat.FindString(string(out))
+	// if the iface does not exist, we must create it
+	if found == "" {
+		args := []string{"-I", iscsiIface, "--mode", "iface", "-o", "new"}
+		_, err := execCommand("iscsiadm", args...)
+		if err != nil {
+			return fmt.Errorf("unable to create new iscsi iface %s: %v", iscsiIface, err)
+		}
+		// get the configs for the default, and then clone them, while overriding the initiator name
+		args = []string{"-I", "default", "--mode", "iface", "-o", "show"}
+		out, err := execCommand("iscsiadm", args...)
+		if err != nil {
+			return fmt.Errorf("unable to get parameters for default iface: %v", err)
+		}
+		params, err := parseIscsiIfaceShow(string(out))
+		if err != nil {
+			return fmt.Errorf("unable to parse parameters for default iface: %v", err)
+		}
+		// THIS IS WRONG! this should be set to the correct initiator from metadata
+		params["iface.initiatorname"] = iscsiIface
+		// update new iface records
+		for key, val := range params {
+			args := []string{"-I", iscsiIface, "--mode", "iface", "-o", "update", "-n", key, "-v", val}
+			_, err = execCommand("iscsiadm", args...)
+			if err != nil {
+				return fmt.Errorf("unable to set parameter %s for iscsi iface %s: %v", key, iscsiIface, err)
+			}
+		}
+		// now we can use it
+	}
+
+	args = []string{"-I", iscsiIface, "--mode", "discovery", "--portal", ip, "--type", "sendtargets", "--discover"}
+	_, err = execCommand("iscsiadm", args...)
 	return err
 }
 
 // HasSession checks to see if the session exists, may log an extraneous error if the seesion does not exist
 func (i *AttacherImpl) HasSession(ip, iqn string) (bool, error) {
-	args := []string{"--mode", "session"}
+	args := []string{"-I", iscsiIface, "--mode", "session"}
 	out, err := execCommand("iscsiadm", args...)
 	if err != nil {
 		return false, nil // this is almost certainly "No active sessions"
@@ -108,7 +155,7 @@ func (i *AttacherImpl) Login(ip, iqn string) error {
 	if hasSession {
 		return nil
 	}
-	args := []string{"--mode", "node", "--portal", ip, "--targetname", iqn, "--login"}
+	args := []string{"-I", iscsiIface, "--mode", "node", "--portal", ip, "--targetname", iqn, "--login"}
 	_, err = execCommand("iscsiadm", args...)
 	return err
 }
@@ -121,7 +168,7 @@ func (i *AttacherImpl) Logout(ip, iqn string) error {
 	if !hasSession {
 		return nil
 	}
-	args := []string{"--mode", "node", "--portal", ip, "--targetname", iqn, "--logout"}
+	args := []string{"-I", iscsiIface, "--mode", "node", "--portal", ip, "--targetname", iqn, "--logout"}
 	_, err = execCommand("iscsiadm", args...)
 	return err
 }
@@ -200,4 +247,26 @@ func multipath(args ...string) (string, error) {
 	}
 
 	return string(output), err
+}
+
+// taken unabashedly from kubernetes kubelet iscsi volume driver, which is licensed Apache 2.0
+// see https://github.com/kubernetes/kubernetes/blob/ce42bc382e38dd7cd233b8a350723287f6e79f82/pkg/volume/iscsi/iscsi_util.go
+func parseIscsiIfaceShow(data string) (map[string]string, error) {
+	params := make(map[string]string)
+	slice := strings.Split(data, "\n")
+	for _, line := range slice {
+		if !strings.HasPrefix(line, "iface.") || strings.Contains(line, "<empty>") {
+			continue
+		}
+		iface := strings.Fields(line)
+		if len(iface) != 3 || iface[1] != "=" {
+			return nil, fmt.Errorf("Error: invalid iface setting: %v", iface)
+		}
+		// iscsi_ifacename is immutable once the iface is created
+		if iface[0] == "iface.iscsi_ifacename" {
+			continue
+		}
+		params[iface[0]] = iface[2]
+	}
+	return params, nil
 }
