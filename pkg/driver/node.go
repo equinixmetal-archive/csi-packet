@@ -22,7 +22,7 @@ type PacketNodeServer struct {
 
 // NewPacketNodeServer create a new PacketNodeServer
 func NewPacketNodeServer(driver *PacketDriver, metadata *packet.MetadataDriver) *PacketNodeServer {
-	// we do NOT initialize here, sicne NewPacketNodeServer is called in all cases of this program
+	// we do NOT initialize here, since NewPacketNodeServer is called in all cases of this program
 	//  even on a controller
 	//  we wait until our first legitimate call for a Node*() func
 	return &PacketNodeServer{
