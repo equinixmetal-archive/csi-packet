@@ -24,13 +24,15 @@ const (
 // IscsiAdm interface provides methods of executing iscsi admin commands
 type Attacher interface {
 	// these interact with iscsiadm and the iscsi target
-	Discover(string) error
-	HasSession(string, string) (bool, error)
-	Login(string, string) error
-	Logout(string, string) error
+
+	// Discover also sets up the iface, so it requires the initiator
+	Discover(ip, initiator string) error
+	HasSession(ip, targe string) (bool, error)
+	Login(ip, target string) error
+	Logout(ip, target string) error
 	// these check locally on the local host
-	GetScsiID(string) (string, error)
-	GetDevice(string, string) (string, error)
+	GetScsiID(devicePath string) (string, error)
+	GetDevice(portal, target string) (string, error)
 	// these do multipath
 	MultipathReadBindings() (map[string]string, map[string]string, error)
 	MultipathWriteBindings(map[string]string) error
@@ -48,10 +50,10 @@ func (i *AttacherImpl) GetScsiID(devicePath string) (string, error) {
 	return string(out), nil
 }
 
-// look for file that matches portal, iqn, look up what it links to
-func (i *AttacherImpl) GetDevice(portal, iqn string) (string, error) {
+// look for file that matches portal, target, look up what it links to
+func (i *AttacherImpl) GetDevice(portal, target string) (string, error) {
 
-	pattern := fmt.Sprintf("%s*%s*%s*", "/dev/disk/by-path/", portal, iqn)
+	pattern := fmt.Sprintf("%s*%s*%s*", "/dev/disk/by-path/", portal, target)
 
 	files, err := filepath.Glob(pattern)
 	if err != nil {
@@ -77,7 +79,7 @@ func (i *AttacherImpl) GetDevice(portal, iqn string) (string, error) {
 	return source, nil
 }
 
-func (i *AttacherImpl) Discover(ip string) error {
+func (i *AttacherImpl) Discover(ip, initiator string) error {
 	// does the desired iface exist?
 	args := []string{"--mode", "iface", "-o", "show"}
 	out, err := execCommand("iscsiadm", args...)
@@ -108,8 +110,7 @@ func (i *AttacherImpl) Discover(ip string) error {
 		if err != nil {
 			return fmt.Errorf("unable to parse parameters for default iface: %v", err)
 		}
-		// THIS IS WRONG! this should be set to the correct initiator from metadata
-		params["iface.initiatorname"] = iscsiIface
+		params["iface.initiatorname"] = initiator
 		// update new iface records
 		for key, val := range params {
 			args := []string{"-I", iscsiIface, "--mode", "iface", "-o", "update", "-n", key, "-v", val}
@@ -127,13 +128,13 @@ func (i *AttacherImpl) Discover(ip string) error {
 }
 
 // HasSession checks to see if the session exists, may log an extraneous error if the seesion does not exist
-func (i *AttacherImpl) HasSession(ip, iqn string) (bool, error) {
-	args := []string{"-I", iscsiIface, "--mode", "session"}
+func (i *AttacherImpl) HasSession(ip, target string) (bool, error) {
+	args := []string{"--mode", "session"}
 	out, err := execCommand("iscsiadm", args...)
 	if err != nil {
 		return false, nil // this is almost certainly "No active sessions"
 	}
-	pat, err := regexp.Compile(ip + ".*" + iqn)
+	pat, err := regexp.Compile(ip + ".*" + target)
 	if err != nil {
 		return false, err
 	}
@@ -147,28 +148,28 @@ func (i *AttacherImpl) HasSession(ip, iqn string) (bool, error) {
 	return false, nil
 }
 
-func (i *AttacherImpl) Login(ip, iqn string) error {
-	hasSession, err := i.HasSession(ip, iqn)
+func (i *AttacherImpl) Login(ip, target string) error {
+	hasSession, err := i.HasSession(ip, target)
 	if err != nil {
 		return err
 	}
 	if hasSession {
 		return nil
 	}
-	args := []string{"-I", iscsiIface, "--mode", "node", "--portal", ip, "--targetname", iqn, "--login"}
+	args := []string{"-I", iscsiIface, "--mode", "node", "--portal", ip, "--targetname", target, "--login"}
 	_, err = execCommand("iscsiadm", args...)
 	return err
 }
 
-func (i *AttacherImpl) Logout(ip, iqn string) error {
-	hasSession, err := i.HasSession(ip, iqn)
+func (i *AttacherImpl) Logout(ip, target string) error {
+	hasSession, err := i.HasSession(ip, target)
 	if err != nil {
 		return err
 	}
 	if !hasSession {
 		return nil
 	}
-	args := []string{"-I", iscsiIface, "--mode", "node", "--portal", ip, "--targetname", iqn, "--logout"}
+	args := []string{"-I", iscsiIface, "--mode", "node", "--portal", ip, "--targetname", target, "--logout"}
 	_, err = execCommand("iscsiadm", args...)
 	return err
 }

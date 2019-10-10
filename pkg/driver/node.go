@@ -18,6 +18,7 @@ type PacketNodeServer struct {
 	Driver         *PacketDriver
 	MetadataDriver *packet.MetadataDriver
 	Initialized    bool
+	initiator      string
 }
 
 // NewPacketNodeServer create a new PacketNodeServer
@@ -42,6 +43,15 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 		return nil, status.Error(codes.InvalidArgument, "VolumeName unspecified for NodeStageVolume")
 	}
 
+	// do we know our initiator?
+	if nodeServer.initiator == "" {
+		initiatorName, err := nodeServer.MetadataDriver.GetInitiator()
+		if err != nil {
+			nodeServer.Driver.Logger.Errorf("NodeGetInfo: metadata error %v", err)
+			return nil, status.Errorf(codes.Unknown, "metadata error, %s", err.Error())
+		}
+		nodeServer.initiator = initiatorName
+	}
 	volumeMetaData, err := nodeServer.MetadataDriver.GetVolumeMetadata(volumeName)
 	if err != nil {
 		nodeServer.Driver.Logger.Errorf("NodeStageVolume: %v", err)
@@ -74,7 +84,7 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 
 	// discover and log in to iscsiadmin
 	for _, ip := range volumeMetaData.IPs {
-		err = nodeServer.Driver.Attacher.Discover(ip.String()) // iscsiadm --mode discovery --type sendtargets --portal 10.144.144.226 --discover
+		err = nodeServer.Driver.Attacher.Discover(ip.String(), nodeServer.initiator) // iscsiadm --mode discovery --type sendtargets --portal 10.144.144.226 --discover
 		if err != nil {
 			logger.Infof("iscsiadmin discover error, %+v", err)
 			return nil, status.Errorf(codes.Unknown, "iscsiadmin discover error, %+v", err)
