@@ -70,6 +70,16 @@ func (m *MetadataDriver) GetFacilityCodeMetadata() (string, error) {
 	return device.Facility, nil
 }
 
+// GetInitiator get the initiator name for iscsi
+func (m *MetadataDriver) GetInitiator() (string, error) {
+	device, err := m.getMetadata()
+	if err != nil {
+		return "", err
+	}
+
+	return device.IQN, nil
+}
+
 // use this when packngo serialization is fixed
 // GetVolumeMetadata gets the volume metadata for a named volume
 func (m *MetadataDriver) packngoGetPacketVolumeMetadata(volumeName string) (metadata.VolumeInfo, error) {

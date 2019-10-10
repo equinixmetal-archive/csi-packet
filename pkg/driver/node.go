@@ -17,19 +17,23 @@ var _ csi.NodeServer = &PacketNodeServer{}
 type PacketNodeServer struct {
 	Driver         *PacketDriver
 	MetadataDriver *packet.MetadataDriver
+	Initialized    bool
 }
 
 // NewPacketNodeServer create a new PacketNodeServer
 func NewPacketNodeServer(driver *PacketDriver, metadata *packet.MetadataDriver) *PacketNodeServer {
+	// we do NOT initialize here, sicne NewPacketNodeServer is called in all cases of this program
+	//  even on a controller
+	//  we wait until our first legitimate call for a Node*() func
 	return &PacketNodeServer{
 		Driver:         driver,
 		MetadataDriver: metadata,
+		Initialized:    false,
 	}
 }
 
 // NodeStageVolume ~ iscisadmin, multipath, format
 func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
-
 	nodeServer.Driver.Logger.Info("NodeStageVolume called")
 	// validate arguments
 	// this is the abbreviated name...
@@ -274,6 +278,20 @@ func (nodeServer *PacketNodeServer) NodeGetVolumeStats(ctx context.Context, in *
 // NodeGetInfo get info for a given node
 func (nodeServer *PacketNodeServer) NodeGetInfo(context.Context, *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
 	nodeServer.Driver.Logger.Info("NodeGetInfo called")
+	// initialize
+	if !nodeServer.Initialized {
+		initiatorName, err := nodeServer.MetadataDriver.GetInitiator()
+		if err != nil {
+			nodeServer.Driver.Logger.Errorf("NodeGetInfo: metadata error %v", err)
+			return nil, status.Errorf(codes.Unknown, "metadata error, %s", err.Error())
+		}
+		err = nodeServer.Driver.Initializer.NodeInit(initiatorName)
+		if err != nil {
+			nodeServer.Driver.Logger.Errorf("NodeGetInfo: NodeInit error %v", err)
+			return nil, status.Errorf(codes.Unknown, "NodeInit error, %s", err.Error())
+		}
+		nodeServer.Initialized = true
+	}
 	return &csi.NodeGetInfoResponse{
 		NodeId: nodeServer.Driver.nodeID,
 		// MaxVolumesPerNode: 0,

@@ -78,6 +78,7 @@ func TestPacketDriver(t *testing.T) {
 			bindmounts:  map[string]string{},
 			blockmounts: map[string]string{},
 		},
+		Initializer: &InitializerMock{},
 	}
 	defer driver.Stop()
 
@@ -439,4 +440,11 @@ func (m *MounterMock) GetMappedDevice(device string) (BlockInfo, error) {
 		UUID:       uuid.New().String(),
 		Mountpoint: "/mnt/foo",
 	}, nil
+}
+
+type InitializerMock struct {
+}
+
+func (i *InitializerMock) NodeInit(initiatorName string) error {
+	return nil
 }
