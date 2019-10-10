@@ -379,7 +379,7 @@ func (a *AttacherMock) GetDevice(portal, iqn string) (string, error) {
 	}
 	return "", fmt.Errorf("device %s %s not found", portal, iqn)
 }
-func (a *AttacherMock) Discover(ip string) error {
+func (a *AttacherMock) Discover(ip, initiator string) error {
 	return nil
 }
 func (a *AttacherMock) HasSession(ip, iqn string) (bool, error) {
