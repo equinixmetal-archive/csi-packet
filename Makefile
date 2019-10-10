@@ -70,10 +70,19 @@ ifndef PKG_LIST
 	$(eval PKG_LIST := $(shell $(BUILD_CMD) go list ./... | grep -v vendor))
 endif
 
-.PHONY: fmt-check lint test vet golint
+.PHONY: fmt-check lint test vet golint tag version
 
 $(DIST_DIR):
 	mkdir -p $@
+
+## report the git tag that would be used for the images
+tag:
+	@echo $(GIT_VERSION)
+
+## report the version that would be put in the binary
+version:
+	@echo $(VERSION)
+
 
 ## Check the file format
 fmt-check: 
