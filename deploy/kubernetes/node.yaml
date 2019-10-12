@@ -57,6 +57,8 @@ spec:
               mountPropagation: "Bidirectional"
             - name: iscsiadm
               mountPath: /sbin/iscsiadm
+            - name: all-plugin-dir
+              mountPath: /var/lib/kubelet/plugins
             - name: plugin-dir
               mountPath: /csi
             - name: sys-devices
@@ -88,6 +90,10 @@ spec:
           hostPath:
             path: /var/lib/kubelet/pods
             type: Directory
+        - name: all-plugin-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins
+            type: DirectoryOrCreate
         - name: plugin-dir
           hostPath:
             path: /var/lib/kubelet/plugins/net.packet.csi/
