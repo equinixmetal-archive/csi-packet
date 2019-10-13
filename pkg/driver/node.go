@@ -121,6 +121,8 @@ func (nodeServer *PacketNodeServer) NodeStageVolume(ctx context.Context, in *csi
 	for mappingName := range discards {
 		multipath("-f", mappingName)
 	}
+	// for some reason, you have to do it twice for it to work
+	multipath(volumeName)
 	multipath(volumeName)
 
 	check, err := multipath("-ll", devicePath)
