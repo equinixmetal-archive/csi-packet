@@ -41,6 +41,8 @@ ifeq ($(ARCH),x86_64)
     override ARCH=amd64
 endif
 
+IMAGENAME ?= $(BUILD_IMAGE):$(IMAGETAG)-$(ARCH)
+
 # Manifest tool, until `docker manifest` is fully ready. As of this writing, it remains experimental
 MANIFEST_URL = https://github.com/estesp/manifest-tool/releases/download/v0.8.0/manifest-tool-$(BUILDOS)-$(BUILDARCH)
 
@@ -189,7 +191,7 @@ sub-push-%:
 	@$(MAKE) ARCH=$* push IMAGETAG=$(IMAGETAG)
 
 push: imagetag	
-	docker push $(BUILD_IMAGE):$(IMAGETAG)-$(ARCH)
+	docker push $(IMAGENAME)
 
 # ensure we have a real imagetag
 imagetag:
@@ -203,7 +205,7 @@ sub-tag-image-%:
 	@$(MAKE) ARCH=$* IMAGETAG=$(IMAGETAG) tag-images
 
 tag-images: imagetag 
-	docker tag $(BUILD_IMAGE):$(FROMTAG)-$(ARCH) $(BUILD_IMAGE):$(IMAGETAG)-$(ARCH)
+	docker tag $(BUILD_IMAGE):$(FROMTAG)-$(ARCH) $(IMAGENAME)
 
 ## ensure that a particular tagged image exists across all support archs
 pull-images-all: $(addprefix sub-pull-image-, $(ARCHES))
@@ -212,9 +214,9 @@ sub-pull-image-%:
 
 ## ensure that a particular tagged image exists locally; if not, pull it
 pull-images: imagetag
-	ifeq (,$(shell docker image ls -q $(BUILD_IMAGE):$(IMAGETAG)-$(ARCH)))
-	docker pull $(BUILD_IMAGE):$(IMAGETAG)-$(ARCH)
-	endif
+	@if [ "$$(docker image ls -q $(IMAGENAME))" = "" ]; then \
+	docker pull $(IMAGENAME); \
+	fi
 
 ## clean up all artifacts
 clean:
