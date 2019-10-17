@@ -67,6 +67,8 @@ BUILD_CMD = docker run --rm \
 		$(BUILDER_IMAGE)
 endif
 
+LINTER ?= $(shell go env GOPATH)/bin/golangci-lint
+
 pkgs:
 ifndef PKG_LIST
 	$(eval PKG_LIST := $(shell $(BUILD_CMD) go list ./... | grep -v vendor))
@@ -94,9 +96,7 @@ fmt-check:
 	fi
 
 golangci-lint:
-ifeq (, $(shell which golangci-lint))
-	go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.17.1
-endif
+	[ -e $(LINTER) ] || go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.17.1
 
 golint:
 ifeq (, $(shell which golint))
@@ -105,7 +105,7 @@ endif
 
 ## Lint the files
 lint: pkgs golint golangci-lint
-	@$(BUILD_CMD) golangci-lint run --disable-all --enable=golint pkg/... cmd/
+	@$(BUILD_CMD) $(LINTER) run --disable-all --enable=golint pkg/... cmd/
 
 ## Run unittests
 test: pkgs
