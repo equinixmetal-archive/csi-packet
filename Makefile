@@ -44,7 +44,8 @@ endif
 IMAGENAME ?= $(BUILD_IMAGE):$(IMAGETAG)-$(ARCH)
 
 # Manifest tool, until `docker manifest` is fully ready. As of this writing, it remains experimental
-MANIFEST_URL = https://github.com/estesp/manifest-tool/releases/download/v0.8.0/manifest-tool-$(BUILDOS)-$(BUILDARCH)
+MANIFEST_VERSION ?= 1.0.0
+MANIFEST_URL = https://github.com/estesp/manifest-tool/releases/download/$(MANIFEST_VERSION)/manifest-tool-$(BUILDOS)-$(BUILDARCH)
 
 # these macros create a list of valid architectures for pushing manifests
 space :=
@@ -67,7 +68,9 @@ BUILD_CMD = docker run --rm \
 		$(BUILDER_IMAGE)
 endif
 
-LINTER ?= $(shell go env GOPATH)/bin/golangci-lint
+GOBIN ?= $(shell go env GOPATH)/bin
+LINTER ?= $(GOBIN)/golangci-lint
+MANIFEST_TOOL ?= $(GOBIN)/manifest-tool
 
 pkgs:
 ifndef PKG_LIST
@@ -95,8 +98,9 @@ fmt-check:
 	  exit 1; \
 	fi
 
-golangci-lint:
-	[ -e $(LINTER) ] || go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.17.1
+golangci-lint: $(LINTER)
+$(LINTER):
+	go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.17.1
 
 golint:
 ifeq (, $(shell which golint))
@@ -154,13 +158,10 @@ ifneq (,$(DESTDIR))
 	cp $(DIST_BINARY) $(DESTDIR)/$(shell basename $(DIST_BINARY))
 endif
 
-manifest-tool:
-ifeq (, $(shell which manifest-tool))
-	mkdir -p $$GOPATH/bin
-	curl -L -o $$GOPATH/bin/$@ $(MANIFEST_URL)
-	chmod +x $$GOPATH/bin/$@
-endif
-
+manifest-tool: $(MANIFEST_TOOL)
+$(MANIFEST_TOOL):
+	curl -L -o $@ $(MANIFEST_URL)
+	chmod +x $@
 
 ## make the images for all supported ARCH
 image-all: $(addprefix sub-image-, $(ARCHES))
@@ -183,7 +184,7 @@ endif
 ## push the multi-arch manifest
 push-manifest: manifest-tool imagetag
 	# path to credentials based on manifest-tool's requirements here https://github.com/estesp/manifest-tool#sample-usage
-	manifest-tool push from-args --platforms $(call join_platforms,$(ARCHES)) --template $(BUILD_IMAGE):$(IMAGETAG)-ARCH --target $(BUILD_IMAGE):$(IMAGETAG)
+	$(GOBIN)/manifest-tool push from-args --platforms $(call join_platforms,$(ARCHES)) --template $(BUILD_IMAGE):$(IMAGETAG)-ARCH --target $(BUILD_IMAGE):$(IMAGETAG)
 
 ## push the images for all supported ARCH
 push-all: imagetag $(addprefix sub-push-, $(ARCHES))
