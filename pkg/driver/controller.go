@@ -287,6 +287,9 @@ func (controller *PacketControllerServer) ControllerPublishVolume(ctx context.Co
 
 // ControllerUnpublishVolume detaches a volume from a node
 func (controller *PacketControllerServer) ControllerUnpublishVolume(ctx context.Context, in *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
+	logger := log.WithFields(log.Fields{"node_id": in.NodeId, "volume_id": in.VolumeId})
+	logger.Info("UnpublishVolume called")
+
 	if controller == nil || controller.Provider == nil {
 		return nil, status.Error(codes.Internal, "controller not configured")
 	}
@@ -303,6 +306,7 @@ func (controller *PacketControllerServer) ControllerUnpublishVolume(ctx context.
 	volume, httpResponse, err := controller.Provider.Get(volumeID)
 	if err != nil {
 		if httpResponse != nil && httpResponse.StatusCode == http.StatusNotFound {
+			logger.Infof("volumeId not found, Get() returned %d", httpResponse.StatusCode)
 			return &csi.ControllerUnpublishVolumeResponse{}, nil
 		}
 		return nil, err
@@ -320,10 +324,13 @@ func (controller *PacketControllerServer) ControllerUnpublishVolume(ctx context.
 			attachmentID = attachment.ID
 		}
 	}
+	logger = logger.WithFields(log.Fields{"attachmentID": attachmentID})
+	logger.Info("attachmentID found")
 
 	httpResponse, err = controller.Provider.Detach(attachmentID)
 	if err != nil {
 		if httpResponse != nil && httpResponse.StatusCode == http.StatusNotFound {
+			logger.Infof("attachmentID not found, Detach() returned %d", httpResponse.StatusCode)
 			return &csi.ControllerUnpublishVolumeResponse{}, nil
 		}
 		return nil, err
@@ -332,6 +339,7 @@ func (controller *PacketControllerServer) ControllerUnpublishVolume(ctx context.
 		return nil, errors.Errorf("bad status from detach volume, %s", httpResponse.Status)
 	}
 
+	logger.Info("successful Detach()")
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
