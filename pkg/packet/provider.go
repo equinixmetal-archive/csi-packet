@@ -134,7 +134,7 @@ func (p *VolumeProviderPacketImpl) ListVolumes(options *packngo.ListOptions) ([]
 
 // Get wraps the packet api as an interface method
 func (p *VolumeProviderPacketImpl) Get(volumeUUID string) (*packngo.Volume, *packngo.Response, error) {
-	return p.client().Volumes.Get(volumeUUID, &packngo.GetOptions{})
+	return p.client().Volumes.Get(volumeUUID, &packngo.GetOptions{Includes: []string{"attachments.volume", "attachments.device"}})
 }
 
 // Delete wraps the packet api as an interface method
