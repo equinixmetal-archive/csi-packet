@@ -235,8 +235,10 @@ func (controller *PacketControllerServer) ControllerPublishVolume(ctx context.Co
 	if in.VolumeCapability == nil {
 		return nil, status.Error(codes.InvalidArgument, "VolumeCapability unspecified for ControllerPublishVolume")
 	}
+	logger := log.WithFields(log.Fields{"volume_id": in.VolumeId})
+	logger.Info("ControllerPublishVolume called")
 
-	csiNodeID := in.NodeId
+	nodeID := in.NodeId
 	volumeID := in.VolumeId
 
 	volume, httpResponse, err := controller.Provider.Get(volumeID)
@@ -246,31 +248,10 @@ func (controller *PacketControllerServer) ControllerPublishVolume(ctx context.Co
 		return nil, returnError
 	}
 
-	nodes, httpResponse, err := controller.Provider.GetNodes()
-	if err != nil {
-		return nil, err
-	}
-	if httpResponse.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("bad status from get nodes, %s", httpResponse.Status)
-	}
-	// for packet this should be an ip address but try hostnam as well first anyway
-	var nodeID string
-	for _, node := range nodes {
-		if node.Hostname == csiNodeID {
-			nodeID = node.ID
-			break
-		}
-		for _, ipAssignment := range node.Network {
-			if ipAssignment.Address == csiNodeID {
-				nodeID = node.ID
-				break
-			}
-		}
-	}
-	if nodeID == "" {
-		return nil, status.Errorf(codes.NotFound, "node not found for host/ip %s", csiNodeID)
-	}
 	attachment, httpResponse, err := controller.Provider.Attach(volumeID, nodeID)
+	if err != nil && httpResponse.StatusCode == http.StatusNotFound {
+		return nil, status.Errorf(codes.NotFound, "node or volume not found attempting to attach %s to %s", volumeID, nodeID)
+	}
 	if err != nil {
 		return nil, status.Errorf(codes.Unknown, "error attempting to attach %s to %s, %v", volumeID, nodeID, err)
 	}

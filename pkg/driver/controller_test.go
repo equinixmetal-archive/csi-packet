@@ -464,17 +464,6 @@ func TestPublishVolume(t *testing.T) {
 	}
 	nodeIPAddress := packngo.IPAddressAssignment{}
 	nodeIPAddress.Address = csiNodeIP
-	nodeResp := []packngo.Device{
-		packngo.Device{
-			DeviceRaw: packngo.DeviceRaw{
-				Hostname: csiNodeName,
-				ID:       nodeID,
-				Network: []*packngo.IPAddressAssignment{
-					&nodeIPAddress,
-				},
-			},
-		},
-	}
 	volumeResp := packngo.Volume{
 		ID:   providerVolumeID,
 		Name: providerVolumeName,
@@ -493,7 +482,6 @@ func TestPublishVolume(t *testing.T) {
 		Volume: volumeResp,
 		Device: packngo.Device{DeviceRaw: packngo.DeviceRaw{ID: nodeID}},
 	}
-	provider.EXPECT().GetNodes().Return(nodeResp, &resp, nil)
 
 	provider.EXPECT().Get(providerVolumeID).Return(&volumeResp, &resp, nil)
 
@@ -502,7 +490,7 @@ func TestPublishVolume(t *testing.T) {
 	controller := NewPacketControllerServer(provider)
 	volumeRequest := csi.ControllerPublishVolumeRequest{
 		VolumeId:         providerVolumeID,
-		NodeId:           csiNodeIP,
+		NodeId:           nodeID,
 		VolumeCapability: &csi.VolumeCapability{},
 	}
 

@@ -13,6 +13,7 @@ import (
 	"github.com/packethost/csi-packet/pkg/packet"
 	packetServer "github.com/packethost/packet-api-server/pkg/server"
 	"github.com/packethost/packet-api-server/pkg/store"
+	"github.com/packethost/packngo"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -43,7 +44,7 @@ func TestPacketDriver(t *testing.T) {
 	defer os.Remove(socket)
 
 	backend := store.NewMemory()
-	dev, err := backend.CreateDevice(projectID, nodeName)
+	dev, err := backend.CreateDevice(projectID, nodeName, &packngo.Plan{}, &packngo.Facility{})
 	if err != nil {
 		t.Fatalf("error creating device: %v", err)
 	}
@@ -73,7 +74,7 @@ func TestPacketDriver(t *testing.T) {
 	driver := &PacketDriver{
 		endpoint: endpoint,
 		name:     driverName,
-		nodeID:   nodeName,
+		nodeID:   dev.ID,
 		config:   config,
 		Logger:   log.WithFields(log.Fields{"node": nodeName, "endpoint": endpoint}),
 		Attacher: &AttacherMock{
