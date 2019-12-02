@@ -57,7 +57,7 @@ join_platforms = $(subst $(space),$(comma),$(call prefix_linux,$(strip $1)))
 export GO111MODULE=on
 DIST_DIR=./dist/bin
 DIST_BINARY = $(DIST_DIR)/$(BINARY)-$(ARCH)
-BUILD_CMD = GOOS=linux GOARCH=$(ARCH)
+BUILD_CMD = GOOS=linux GOARCH=$(ARCH) CGO_ENABLED=0
 ifdef DOCKERBUILD
 BUILD_CMD = docker run --rm \
                 -e GOARCH=$(ARCH) \
@@ -231,14 +231,15 @@ clean:
 .PHONY: ci cd build deploy push release confirm pull-images
 ## Run what CI runs
 # race has an issue with alpine, see https://github.com/golang/go/issues/14481
-ci: build-all fmt-check lint test vet image-all # race
+# image-all is removed so we can build locally not as part of CI
+ci: build-all fmt-check lint test vet # image-all race
 
 confirm:
 ifndef CONFIRM
 	$(error CONFIRM is undefined - run using make <target> CONFIRM=true)
 endif
 
-cd: confirm
+cd: confirm image-all
 ifndef BRANCH_NAME
 	$(error BRANCH_NAME is undefined - run using make <target> BRANCH_NAME=var or set an environment variable)
 endif
