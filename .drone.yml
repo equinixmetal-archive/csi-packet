@@ -19,7 +19,18 @@ steps:
   - apk --update add make git
   - make ci
 
-## git tagged and latest images
+## register qemu for cross building
+
+- name: qemu-register
+  image: plugins/docker
+  commands:
+  - make register ARCH=all
+  when:
+    branch:
+    - master
+    event: push
+
+## publish git tagged and latest images
 
 - name: publish-amd64
   pull: always
