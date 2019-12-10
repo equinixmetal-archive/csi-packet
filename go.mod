@@ -2,6 +2,8 @@ module github.com/packethost/csi-packet
 
 go 1.12
 
+//replace github.com/packethost/packet-api-server => /Users/adeitcher/Documents/Development/go/src/github.com/packethost/packet-api-server
+
 require (
 	github.com/container-storage-interface/spec v1.1.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
@@ -12,7 +14,7 @@ require (
 	github.com/kubernetes-csi/csi-test v2.2.0+incompatible
 	github.com/onsi/ginkgo v1.10.1 // indirect
 	github.com/onsi/gomega v1.7.0 // indirect
-	github.com/packethost/packet-api-server v0.0.0-20191030104512-6c061c0126f9
+	github.com/packethost/packet-api-server v0.0.0-20191210180413-86f9ff63b495
 	github.com/packethost/packngo v0.2.1-0.20191003144416-9f81c97413a3
 	github.com/pkg/errors v0.8.0
 	github.com/sirupsen/logrus v1.0.5

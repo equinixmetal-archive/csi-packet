@@ -80,6 +80,16 @@ func (m *MetadataDriver) GetInitiator() (string, error) {
 	return device.IQN, nil
 }
 
+// GetNodeID get the official packet node ID
+func (m *MetadataDriver) GetNodeID() (string, error) {
+	device, err := m.getMetadata()
+	if err != nil {
+		return "", err
+	}
+
+	return device.ID, nil
+}
+
 // use this when packngo serialization is fixed
 // GetVolumeMetadata gets the volume metadata for a named volume
 func (m *MetadataDriver) packngoGetPacketVolumeMetadata(volumeName string) (metadata.VolumeInfo, error) {

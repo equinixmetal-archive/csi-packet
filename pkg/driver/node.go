@@ -22,7 +22,7 @@ type PacketNodeServer struct {
 }
 
 // NewPacketNodeServer create a new PacketNodeServer
-func NewPacketNodeServer(driver *PacketDriver, metadata *packet.MetadataDriver) *PacketNodeServer {
+func NewPacketNodeServer(driver *PacketDriver, metadata *packet.MetadataDriver) (*PacketNodeServer, error) {
 	// we do NOT initialize here, since NewPacketNodeServer is called in all cases of this program
 	//  even on a controller
 	//  we wait until our first legitimate call for a Node*() func
@@ -30,7 +30,7 @@ func NewPacketNodeServer(driver *PacketDriver, metadata *packet.MetadataDriver) 
 		Driver:         driver,
 		MetadataDriver: metadata,
 		Initialized:    false,
-	}
+	}, nil
 }
 
 // NodeStageVolume ~ iscisadmin, multipath, format

@@ -1,8 +1,14 @@
 package driver
 
 import (
+	"fmt"
+
 	"github.com/packethost/csi-packet/pkg/packet"
 	log "github.com/sirupsen/logrus"
+)
+
+const (
+	DriverName = "net.packet.csi"
 )
 
 var (
@@ -23,13 +29,23 @@ type PacketDriver struct {
 
 // NewPacketDriver create a new PacketDriver
 func NewPacketDriver(endpoint, nodeID string, config packet.Config) (*PacketDriver, error) {
+	// if the nodeID was not specified, we retrieve it from metadata
+	var err error
+	nid := nodeID
+	if nid == "" {
+		md := packet.MetadataDriver{BaseURL: config.MetadataURL}
+		nid, err = md.GetNodeID()
+		if err != nil {
+			return nil, fmt.Errorf("unable to get node ID from metadata: %v", err)
+		}
+	}
 	return &PacketDriver{
 		// name https://github.com/container-storage-interface/spec/blob/master/spec.md#getplugininfo
-		name:     "net.packet.csi", // this could be configurable, but must match a plugin directory name for kubelet to use
-		nodeID:   nodeID,
+		name:     DriverName, // this could be configurable, but must match a plugin directory name for kubelet to use
+		nodeID:   nid,
 		endpoint: endpoint,
 		config:   config,
-		Logger:   log.WithFields(log.Fields{"node": nodeID, "endpoint": endpoint}),
+		Logger:   log.WithFields(log.Fields{"node": nid, "endpoint": endpoint}),
 		// default attacher and mounter
 		Attacher:    &AttacherImpl{},
 		Mounter:     &MounterImpl{},
@@ -50,7 +66,11 @@ func (d *PacketDriver) Run() {
 		}
 		controller = NewPacketControllerServer(p)
 	}
-	node := NewPacketNodeServer(d, &metadataDriver)
+	node, err := NewPacketNodeServer(d, &metadataDriver)
+	if err != nil {
+		d.Logger.Fatalf("Unable to create node server %+v", err)
+	}
+
 	d.Logger.Info("Starting server")
 	server.Start(d.endpoint,
 		identity,

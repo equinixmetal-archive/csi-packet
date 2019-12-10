@@ -70,8 +70,8 @@ func main() {
 
 	cmd.Flags().AddGoFlagSet(flag.CommandLine)
 
+	// optional flag to override node ID
 	cmd.PersistentFlags().StringVar(&nodeID, "nodeid", "", "node id")
-	cmd.MarkPersistentFlagRequired("nodeid")
 
 	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", "", "CSI endpoint")
 	cmd.MarkPersistentFlagRequired("endpoint")

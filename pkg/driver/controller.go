@@ -1,6 +1,9 @@
 package driver
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/packethost/packngo"
 	"github.com/pkg/errors"
 
@@ -232,8 +235,10 @@ func (controller *PacketControllerServer) ControllerPublishVolume(ctx context.Co
 	if in.VolumeCapability == nil {
 		return nil, status.Error(codes.InvalidArgument, "VolumeCapability unspecified for ControllerPublishVolume")
 	}
+	logger := log.WithFields(log.Fields{"volume_id": in.VolumeId})
+	logger.Info("ControllerPublishVolume called")
 
-	csiNodeID := in.NodeId
+	nodeID := in.NodeId
 	volumeID := in.VolumeId
 
 	volume, httpResponse, err := controller.Provider.Get(volumeID)
@@ -243,31 +248,10 @@ func (controller *PacketControllerServer) ControllerPublishVolume(ctx context.Co
 		return nil, returnError
 	}
 
-	nodes, httpResponse, err := controller.Provider.GetNodes()
-	if err != nil {
-		return nil, err
-	}
-	if httpResponse.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("bad status from get nodes, %s", httpResponse.Status)
-	}
-	// for packet this should be an ip address but try hostnam as well first anyway
-	var nodeID string
-	for _, node := range nodes {
-		if node.Hostname == csiNodeID {
-			nodeID = node.ID
-			break
-		}
-		for _, ipAssignment := range node.Network {
-			if ipAssignment.Address == csiNodeID {
-				nodeID = node.ID
-				break
-			}
-		}
-	}
-	if nodeID == "" {
-		return nil, status.Errorf(codes.NotFound, "node not found for host/ip %s", csiNodeID)
-	}
 	attachment, httpResponse, err := controller.Provider.Attach(volumeID, nodeID)
+	if err != nil && httpResponse.StatusCode == http.StatusNotFound {
+		return nil, status.Errorf(codes.NotFound, "node or volume not found attempting to attach %s to %s", volumeID, nodeID)
+	}
 	if err != nil {
 		return nil, status.Errorf(codes.Unknown, "error attempting to attach %s to %s, %v", volumeID, nodeID, err)
 	}
@@ -287,22 +271,24 @@ func (controller *PacketControllerServer) ControllerPublishVolume(ctx context.Co
 
 // ControllerUnpublishVolume detaches a volume from a node
 func (controller *PacketControllerServer) ControllerUnpublishVolume(ctx context.Context, in *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
+	logger := log.WithFields(log.Fields{"node_id": in.NodeId, "volume_id": in.VolumeId})
+	logger.Info("UnpublishVolume called")
+
 	if controller == nil || controller.Provider == nil {
 		return nil, status.Error(codes.Internal, "controller not configured")
-	}
-	if in.NodeId == "" {
-		return nil, status.Error(codes.InvalidArgument, "NodeId unspecified for ControllerUnpublishVolume")
-	}
-	if in.VolumeId == "" {
-		return nil, status.Error(codes.InvalidArgument, "VolumeId unspecified for ControllerUnpublishVolume")
 	}
 
 	nodeID := in.GetNodeId()
 	volumeID := in.GetVolumeId()
 
+	if volumeID == "" {
+		return nil, status.Error(codes.InvalidArgument, "VolumeId unspecified for ControllerUnpublishVolume")
+	}
+
 	volume, httpResponse, err := controller.Provider.Get(volumeID)
 	if err != nil {
 		if httpResponse != nil && httpResponse.StatusCode == http.StatusNotFound {
+			logger.Infof("volumeId not found, Get() returned %d", httpResponse.StatusCode)
 			return &csi.ControllerUnpublishVolumeResponse{}, nil
 		}
 		return nil, err
@@ -310,28 +296,55 @@ func (controller *PacketControllerServer) ControllerUnpublishVolume(ctx context.
 	if httpResponse.StatusCode != http.StatusOK {
 		return nil, status.Errorf(codes.Unknown, "bad status from get volume %s, %s", volumeID, httpResponse.Status)
 	}
+
+	// get all of the attachments
 	attachments := volume.Attachments
 	if attachments == nil {
 		return nil, status.Errorf(codes.Unknown, "cannot detach unattached volume %s", volumeID)
 	}
-	attachmentID := ""
+	// go through each attachment. If its deviceID matches our desired nodeID, or if nodeID was blank,
+	//   add to the detach list. Else skip
+	attachmentIDs := []string{}
 	for _, attachment := range attachments {
-		if attachment.Volume.ID == volumeID && attachment.Device.ID == nodeID {
-			attachmentID = attachment.ID
+		switch {
+		case nodeID == "":
+			logger.Infof("empty nodeID; detaching from node %s", attachment.Device.ID)
+			attachmentIDs = append(attachmentIDs, attachment.ID)
+		case attachment.Volume.ID == volumeID && attachment.Device.ID == nodeID:
+			logger.Debugf("matched node ID; detaching from node %s", attachment.Device.ID)
+			attachmentIDs = append(attachmentIDs, attachment.ID)
+		default:
+			logger.Debugf("mismatched node ID; not detaching from node %s", attachment.Device.ID)
 		}
 	}
 
-	httpResponse, err = controller.Provider.Detach(attachmentID)
-	if err != nil {
-		if httpResponse != nil && httpResponse.StatusCode == http.StatusNotFound {
-			return &csi.ControllerUnpublishVolumeResponse{}, nil
-		}
-		return nil, err
-	}
-	if httpResponse.StatusCode != http.StatusOK && httpResponse.StatusCode != http.StatusNotFound {
-		return nil, errors.Errorf("bad status from detach volume, %s", httpResponse.Status)
+	// if no valid attachments found, report an error
+	if len(attachmentIDs) == 0 {
+		return nil, status.Errorf(codes.Unknown, "no attachment ID found for volume %s", volumeID)
 	}
 
+	failed := []string{}
+	for _, a := range attachmentIDs {
+		httpResponse, err = controller.Provider.Detach(a)
+		if err != nil {
+			if httpResponse != nil && httpResponse.StatusCode == http.StatusNotFound {
+				logger.WithFields(log.Fields{"attachmentID": a}).Infof("attachmentID not found, Detach() returned %d", httpResponse.StatusCode)
+				failed = append(failed, fmt.Sprintf("%s: attachmentID not found, Detach() returned %d", a, httpResponse.StatusCode))
+				continue
+			}
+			failed = append(failed, fmt.Sprintf(err.Error()))
+		}
+		if httpResponse.StatusCode != http.StatusOK && httpResponse.StatusCode != http.StatusNotFound {
+			failed = append(failed, fmt.Sprintf("%s: bad status from detach volume, %s", a, httpResponse.Status))
+		}
+	}
+
+	// did we succeed?
+	if len(failed) != 0 {
+		return nil, fmt.Errorf(strings.Join(failed, ";"))
+	}
+
+	logger.Info("successful Detach()")
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 

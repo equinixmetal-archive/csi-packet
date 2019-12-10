@@ -65,15 +65,10 @@ spec:
           image: docker.io/packethost/csi-packet:v1.0.0
           args:
             - "--endpoint=$(CSI_ENDPOINT)"
-            - "--nodeid=$(KUBE_NODE_NAME)"
             - "--config=/etc/cloud-sa/cloud-sa.json"
           env:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
-            - name: KUBE_NODE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
           volumeMounts:
             - name: socket-dir
               mountPath: /csi
