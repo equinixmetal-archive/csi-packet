@@ -14,7 +14,7 @@ FROMTAG ?= latest
 LDFLAGS ?= -ldflags '-extldflags "-static" -X "$(PACKAGE_NAME)/pkg/version.VERSION=$(VERSION)"'
 
 # which arches can we support
-ARCHES=$(patsubst Dockerfile.%,%,$(wildcard Dockerfile.*))
+ARCHES=$(shell cat arches.txt)
 
 # BUILDARCH is the host architecture
 # ARCH is the target architecture
@@ -41,6 +41,14 @@ ifeq ($(ARCH),x86_64)
     override ARCH=amd64
 endif
 
+# I also need the names for the hub images
+REPOARCH ?= $(ARCH)
+# canonicalize these because they are not consistent
+ifeq ($(REPOARCH),arm64)
+        override REPOARCH=arm64v8
+endif
+
+
 IMAGENAME ?= $(BUILD_IMAGE):$(IMAGETAG)-$(ARCH)
 
 # Manifest tool, until `docker manifest` is fully ready. As of this writing, it remains experimental
@@ -57,6 +65,7 @@ join_platforms = $(subst $(space),$(comma),$(call prefix_linux,$(strip $1)))
 export GO111MODULE=on
 DIST_DIR=./dist/bin
 DIST_BINARY = $(DIST_DIR)/$(BINARY)-$(ARCH)
+DIST_BINARY_FILE = $(shell basename $(DIST_BINARY))
 BUILD_CMD = GOOS=linux GOARCH=$(ARCH) CGO_ENABLED=0
 ifdef DOCKERBUILD
 BUILD_CMD = docker run --rm \
@@ -92,7 +101,7 @@ version:
 
 
 ## Check the file format
-fmt-check: 
+fmt-check:
 	@if [ -n "$(shell $(BUILD_CMD) gofmt -l ${GO_FILES})" ]; then \
 	  $(BUILD_CMD) gofmt -s -e -d ${GO_FILES}; \
 	  exit 1; \
@@ -126,15 +135,15 @@ race: pkgs
 	@$(BUILD_CMD) go test -race -short ${PKG_LIST}
 
 ## Display this help screen
-help: 
+help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 ## Delete the csi
-undeploy: 
+undeploy:
 	kubectl delete --now -f releases/v0.0.0.yaml
 
 ## Deploy the controller to kubernetes
-deploy: 
+deploy:
 	kubectl apply -f releases/v0.0.0.yaml
 
 
@@ -151,11 +160,15 @@ build: $(DIST_BINARY)
 $(DIST_BINARY): $(DIST_DIR)
 	$(BUILD_CMD) go build -v -o $@ $(LDFLAGS) $(PACKAGE_NAME)/cmd/csi-packet-driver
 
+## Report the supported arches
+arches:
+	@echo $(ARCHES)
+
 ## copy a binary to an install destination
 install:
 ifneq (,$(DESTDIR))
 	mkdir -p $(DESTDIR)
-	cp $(DIST_BINARY) $(DESTDIR)/$(shell basename $(DIST_BINARY))
+	cp $(DIST_BINARY) $(DESTDIR)/$(DIST_BINARY_FILE)
 endif
 
 manifest-tool: $(MANIFEST_TOOL)
@@ -170,7 +183,7 @@ sub-image-%:
 
 ## make the image for a single ARCH
 image: register
-	docker image build -t $(BUILD_IMAGE):latest-$(ARCH) -f Dockerfile.$(ARCH) .
+	docker image build -t $(BUILD_IMAGE):latest-$(ARCH) -f Dockerfile --build-arg BINARCH=${ARCH} --build-arg REPOARCH=${REPOARCH} .
 
 # Targets used when cross building.
 .PHONY: register
@@ -191,7 +204,7 @@ push-all: imagetag $(addprefix sub-push-, $(ARCHES))
 sub-push-%:
 	@$(MAKE) ARCH=$* push IMAGETAG=$(IMAGETAG)
 
-push: imagetag	
+push: imagetag
 	docker push $(IMAGENAME)
 
 # ensure we have a real imagetag
@@ -205,7 +218,7 @@ tag-images-all: $(addprefix sub-tag-image-, $(ARCHES))
 sub-tag-image-%:
 	@$(MAKE) ARCH=$* IMAGETAG=$(IMAGETAG) tag-images
 
-tag-images: imagetag 
+tag-images: imagetag
 	docker tag $(BUILD_IMAGE):$(FROMTAG)-$(ARCH) $(IMAGENAME)
 
 ## ensure that a particular tagged image exists across all support archs

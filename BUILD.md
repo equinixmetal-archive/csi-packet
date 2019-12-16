@@ -89,12 +89,8 @@ The node processes must interact with services running on the host in order to c
 
 See additional documents in the `docs/` directory
 
-## Caveat
-
-The plugin at present is far from production assurance, and requires testing and hardening. Even listing the known issues is premature.
-
 ## Development
-The Makefile builds locally using your own installed `go`, or in a container via `docker run`. 
+The Makefile builds locally using your own installed `go`, or in a container via `docker run`.
 
 The following are standard commands:
 
@@ -102,7 +98,8 @@ The following are standard commands:
 * `make build-all` - ensure vendor dependencies and build the single CSI binary for all supported architectures. We build a binary for each arch for which a `Dockerfile.<arch>` exists in this directory.
 * `make build ARCH=$(ARCH) DOCKERBUILD=true` - ensure vendor dependencies and build the CSI binary as above, while performing the build inside a docker container
 * `make build-all` - ensure vendor dependencies and build the CSI binary for all supported architectures.
-* `make image ARCH=$(ARCH)` - make an OCI image for the provided ARCH
+* `make image` - make an OCI image for your current ARCH.
+* `make image ARCH=$(ARCH)` - make an OCI image for the provided ARCH, as distinct from your current ARCH. Requires that you have [binfmt](https://en.wikipedia.org/wiki/Binfmt_misc) support.
 * `make image-all` - make an OCI image for all supported architectures
 * `make ci` - build, test and create an OCI image for all supported architectures. This is what the CI system runs.
 * `make cd` - deploy images for all supported architectures, as well as a multi-arch manifest..
@@ -114,3 +111,31 @@ All images are tagged `$(TAG)-$(ARCH)`, where:
 * `ARCH` = the architecture of the image
 
 In addition, we use multi-arch manifests for "archless" releases, e.g. `:3456abcd` or `:v1.2.3` or `:master`.
+
+## Dockerfiles
+
+This repository supports a single version of the [Dockerfile](./Dockerfile), supporting both building on your own architecture, e.g. `amd64` on `amd64`, and cross, e.g. `arm64` on `amd64`. In _all cases_, you must set the following `--build-arg` options:
+
+* `BINARCH` - target arch for the binary, compatible with `GOARCH`
+* `REPOARCH` - target arch for the image, compatible with the docker hub repositories, i.e. `amd64`, `arm64v8`
+
+If cross-compiling an image to an alternate architecture, you have two additional requirements:
+
+* [binfmt](https://en.wikipedia.org/wiki/Binfmt_misc) support
+* a Linux kernel version of 4.8 or higher, so that you don't have to copy qemu-static into the container.
+
+To simpify commands, you can do `make image` (which is what `make` is for in the first place):
+
+* `make image` - build for your local architecture
+* `make image ARCH=amd64` - build for `amd64`
+* `make image ARCH=arm64` - build for `arm64`
+
+etc.
+
+In all cases, `make image` will set the correct `--build-arg` arguments.
+
+The image always will be tagged `packethost/csi-packet:latest-<target_arch>`, e.g. `packethost/csi-packet:latest-amd64`.
+
+## Supported Platforms
+
+Packet CSI is supported on Linux only. As of this writing, it supports the architectures listed in [arch.txt](./arch.txt).
