@@ -1,7 +1,7 @@
 ---
 # drone config
 kind: pipeline
-name: default
+name: test
 
 platform:
   os: linux
@@ -19,28 +19,28 @@ steps:
   - apk --update add make git
   - make ci
 
-## register qemu for cross building
+---
+kind: pipeline
+name: amd64
 
-- name: qemu-register
-  image: plugins/docker
-  commands:
-  - apk --update add make
-  - make register ARCH=all
-  when:
-    branch:
-    - master
-    event: push
+platform:
+  os: linux
+  arch: amd64
 
 ## publish git tagged and latest images
 
+steps:
 - name: publish-amd64
   pull: always
   image: plugins/docker
   settings:
-    dockerfile: Dockerfile.amd64
+    dockerfile: Dockerfile
     password:
       from_secret: docker_password
     repo: packethost/csi-packet
+    build_args:
+      BINARCH: amd64
+      REPOARCH: amd64
     tags:
     - "${DRONE_COMMIT}-amd64"
     - latest-amd64
@@ -51,14 +51,49 @@ steps:
     - master
     event: push
 
+## publish release image
+
+- name: release-amd64
+  pull: always
+  image: plugins/docker
+  settings:
+    dockerfile: Dockerfile
+    password:
+      from_secret: docker_password
+    repo: packethost/csi-packet
+    build_args:
+      BINARCH: amd64
+      REPOARCH: amd64
+    tags:
+    - "${DRONE_TAG}-amd64"
+    username:
+      from_secret: docker_username
+  when:
+    event:
+    - tag
+
+---
+kind: pipeline
+name: arm64
+
+platform:
+  os: linux
+  arch: arm64
+
+## publish git tagged and latest images
+
+steps:
 - name: publish-arm64
   pull: always
   image: plugins/docker
   settings:
-    dockerfile: Dockerfile.arm64
+    dockerfile: Dockerfile
     password:
       from_secret: docker_password
     repo: packethost/csi-packet
+    build_args:
+      BINARCH: arm64
+      REPOARCH: arm64v8
     tags:
     - "${DRONE_COMMIT}-arm64"
     - latest-arm64
@@ -69,8 +104,42 @@ steps:
     - master
     event: push
 
+## publish release image
+
+- name: release-arm64
+  pull: always
+  image: plugins/docker
+  settings:
+    dockerfile: Dockerfile
+    password:
+      from_secret: docker_password
+    repo: packethost/csi-packet
+    build_args:
+      BINARCH: arm64
+      REPOARCH: arm64v8
+    tags:
+    - "${DRONE_TAG}-arm64"
+    username:
+      from_secret: docker_username
+  when:
+    event:
+    - tag
+
+---
+kind: pipeline
+name: manifests
+
+depends_on:
+- amd64
+- arm64
+
+platform:
+  os: linux
+  arch: amd64
+
 ## manifests
 
+steps:
 - name: manifest-commit
   pull: always
   image: plugins/manifest
@@ -109,38 +178,6 @@ steps:
 
 ## Releases
 
-- name: release-amd64
-  pull: always
-  image: plugins/docker
-  settings:
-    dockerfile: Dockerfile.amd64
-    password:
-      from_secret: docker_password
-    repo: packethost/csi-packet
-    tags:
-    - "${DRONE_TAG}-amd64"
-    username:
-      from_secret: docker_username
-  when:
-    event:
-    - tag
-
-- name: release-arm64
-  pull: always
-  image: plugins/docker
-  settings:
-    dockerfile: Dockerfile.arm64
-    password:
-      from_secret: docker_password
-    repo: packethost/csi-packet
-    tags:
-    - "${DRONE_TAG}-arm64"
-    username:
-      from_secret: docker_username
-  when:
-    event:
-    - tag
-
 - name: release-manifest-commit
   pull: always
   image: plugins/manifest
@@ -157,4 +194,3 @@ steps:
   when:
     event:
       - tag
-
