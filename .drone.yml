@@ -23,6 +23,9 @@ steps:
 kind: pipeline
 name: amd64
 
+depends_on:
+- test
+
 platform:
   os: linux
   arch: amd64
@@ -39,8 +42,8 @@ steps:
       from_secret: docker_password
     repo: packethost/csi-packet
     build_args:
-      BINARCH: amd64
-      REPOARCH: amd64
+      - BINARCH=amd64
+      - REPOARCH=amd64
     tags:
     - "${DRONE_COMMIT}-amd64"
     - latest-amd64
@@ -62,8 +65,8 @@ steps:
       from_secret: docker_password
     repo: packethost/csi-packet
     build_args:
-      BINARCH: amd64
-      REPOARCH: amd64
+      - BINARCH=amd64
+      - REPOARCH=amd64
     tags:
     - "${DRONE_TAG}-amd64"
     username:
@@ -75,6 +78,9 @@ steps:
 ---
 kind: pipeline
 name: arm64
+
+depends_on:
+- test
 
 platform:
   os: linux
@@ -92,8 +98,8 @@ steps:
       from_secret: docker_password
     repo: packethost/csi-packet
     build_args:
-      BINARCH: arm64
-      REPOARCH: arm64v8
+      - BINARCH=arm64
+      - REPOARCH=arm64v8
     tags:
     - "${DRONE_COMMIT}-arm64"
     - latest-arm64
@@ -115,8 +121,8 @@ steps:
       from_secret: docker_password
     repo: packethost/csi-packet
     build_args:
-      BINARCH: arm64
-      REPOARCH: arm64v8
+      - BINARCH=arm64
+      - REPOARCH=arm64v8
     tags:
     - "${DRONE_TAG}-arm64"
     username:
