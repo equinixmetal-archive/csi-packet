@@ -23,6 +23,9 @@ steps:
 kind: pipeline
 name: amd64
 
+depends_on:
+- test
+
 platform:
   os: linux
   arch: amd64
@@ -75,6 +78,9 @@ steps:
 ---
 kind: pipeline
 name: arm64
+
+depends_on:
+- test
 
 platform:
   os: linux
