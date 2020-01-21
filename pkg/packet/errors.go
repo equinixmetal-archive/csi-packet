@@ -39,3 +39,20 @@ func IsTooManyDevicesAttached(err error) bool {
 	}
 	return false
 }
+
+// DeviceStillAttachedError error type that volume still is attached to a device
+type DeviceStillAttachedError struct{}
+
+// Error return the error string
+func (d DeviceStillAttachedError) Error() string {
+	return "Cannot delete when still attached"
+}
+
+// IsDeviceStillAttached check if this error is a device still attached error
+func IsDeviceStillAttached(err error) bool {
+	switch err.(type) {
+	case *DeviceStillAttachedError:
+		return true
+	}
+	return false
+}

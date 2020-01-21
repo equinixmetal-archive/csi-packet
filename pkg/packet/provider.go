@@ -16,6 +16,8 @@ const (
 	ConsumerToken = "csi-packet"
 	// BillingHourly string to indicate hourly billing
 	BillingHourly = "hourly"
+	// volumeInUseMessage message that is returned if volume is in use
+	volumeInUseMessage = "Cannot detach since volume is actively being used on your server"
 )
 
 // Config configuration for a volume provider, includes authentication token, project ID and facility ID, and optional override URL to talk to a different packet API endpoint
@@ -185,7 +187,16 @@ func (p *VolumeProviderPacketImpl) Attach(volumeID, deviceID string) (*packngo.V
 
 // Detach wraps the packet api as an interface method
 func (p *VolumeProviderPacketImpl) Detach(attachmentID string) (*packngo.Response, error) {
-	return p.client().VolumeAttachments.Delete(attachmentID)
+	response, err := p.client().VolumeAttachments.Delete(attachmentID)
+	// is this a "volume still attached" error? if so, indicate
+	if err == nil {
+		return response, err
+	}
+	errResponse, ok := err.(*packngo.ErrorResponse)
+	if ok && response != nil && response.StatusCode == http.StatusUnprocessableEntity && len(errResponse.Errors) > 0 && strings.HasPrefix(errResponse.Errors[0], volumeInUseMessage) {
+		return response, &DeviceStillAttachedError{}
+	}
+	return response, err
 }
 
 // GetNodes list nodes
