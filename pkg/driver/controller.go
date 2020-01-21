@@ -27,6 +27,10 @@ const (
 	AttachMaxRetries = 5
 	// AttachRetryInterval retry interval in seconds between retries to check if a volume attachment is ready
 	AttachRetryInterval = 1 // in seconds
+	// DetachMaxRetries maximum number of times to retry until giving up on a volume detach request
+	DetachMaxRetries = 30
+	// AttachRetryInterval retry interval in seconds between retries to check if a volume is detached
+	DetachRetryInterval = 2 // in seconds
 )
 
 var _ csi.ControllerServer = &PacketControllerServer{}
@@ -345,20 +349,44 @@ func (controller *PacketControllerServer) ControllerUnpublishVolume(ctx context.
 		return nil, status.Errorf(codes.Unknown, "no attachment ID found for volume %s", volumeID)
 	}
 
+	count := 0
 	failed := []string{}
-	for _, a := range attachmentIDs {
-		httpResponse, err = controller.Provider.Detach(a)
-		if err != nil {
-			if httpResponse != nil && httpResponse.StatusCode == http.StatusNotFound {
+	retryIDs := []string{}
+
+	// keep looping until we hit one of:
+	//  - exceed our retry count
+	//  - have no more retries
+	for {
+		for _, a := range attachmentIDs {
+			httpResponse, err = controller.Provider.Detach(a)
+			switch {
+			case err != nil && httpResponse != nil && httpResponse.StatusCode == http.StatusNotFound:
 				logger.WithFields(log.Fields{"attachmentID": a}).Infof("attachmentID not found, Detach() returned %d", httpResponse.StatusCode)
 				failed = append(failed, fmt.Sprintf("%s: attachmentID not found, Detach() returned %d", a, httpResponse.StatusCode))
-				continue
+			case err != nil && packet.IsDeviceStillAttached(err):
+				// mark that we need to retry this attachment ID
+				retryIDs = append(retryIDs, a)
+			case err != nil:
+				failed = append(failed, fmt.Sprintf(err.Error()))
+			case httpResponse != nil && httpResponse.StatusCode != http.StatusOK && httpResponse.StatusCode != http.StatusNotFound:
+				failed = append(failed, fmt.Sprintf("%s: bad status from detach volume, %s", a, httpResponse.Status))
 			}
-			failed = append(failed, fmt.Sprintf(err.Error()))
 		}
-		if httpResponse.StatusCode != http.StatusOK && httpResponse.StatusCode != http.StatusNotFound {
-			failed = append(failed, fmt.Sprintf("%s: bad status from detach volume, %s", a, httpResponse.Status))
+		// did we have any to retry or did we hit the max?
+		if len(retryIDs) <= 0 || count >= DetachMaxRetries {
+			break
 		}
+		// increment the counter
+		count++
+		// reset the attachment IDs
+		attachmentIDs = retryIDs[:]
+		retryIDs = retryIDs[:0]
+		time.Sleep(DetachRetryInterval * time.Second)
+	}
+
+	// did we have any left to retry? If so, create errors for it
+	for _, a := range retryIDs {
+		failed = append(failed, fmt.Sprintf("%s: could not detach after %d retries in %d seconds", a, DetachMaxRetries, DetachRetryInterval*DetachMaxRetries))
 	}
 
 	// did we succeed?
