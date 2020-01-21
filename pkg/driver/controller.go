@@ -2,14 +2,13 @@ package driver
 
 import (
 	"fmt"
+	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/packethost/packngo"
 	"github.com/pkg/errors"
-
-	"net/http"
-	"strconv"
-	"time"
 
 	csi "github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/packethost/csi-packet/pkg/packet"
@@ -24,6 +23,10 @@ const (
 	VolumeMaxRetries = 10
 	// VolumeRetryInterval retry interval in seconds between retries to check if a volume create request is ready
 	VolumeRetryInterval = 1 // in seconds
+	// AttachMaxRetries maximum number of times to retry until giving up on a volume attach request
+	AttachMaxRetries = 5
+	// AttachRetryInterval retry interval in seconds between retries to check if a volume attachment is ready
+	AttachRetryInterval = 1 // in seconds
 )
 
 var _ csi.ControllerServer = &PacketControllerServer{}
@@ -248,15 +251,34 @@ func (controller *PacketControllerServer) ControllerPublishVolume(ctx context.Co
 		return nil, returnError
 	}
 
-	attachment, httpResponse, err := controller.Provider.Attach(volumeID, nodeID)
-	if err != nil && httpResponse.StatusCode == http.StatusNotFound {
-		return nil, status.Errorf(codes.NotFound, "node or volume not found attempting to attach %s to %s", volumeID, nodeID)
-	}
-	if err != nil {
-		return nil, status.Errorf(codes.Unknown, "error attempting to attach %s to %s, %v", volumeID, nodeID, err)
-	}
-	if httpResponse.StatusCode != http.StatusOK && httpResponse.StatusCode != http.StatusCreated {
-		return nil, status.Errorf(codes.Unknown, "bad status from attach volumes, %s", httpResponse.Status)
+	// it is possible to try to attach, and it already is attached, but has not yet disconnected
+	// we are willing to retry up to AttachRetryMax times, with AttachRetryDelay between each
+	count := 0
+
+	var attachment *packngo.VolumeAttachment
+forloop:
+	for {
+		attachment, httpResponse, err = controller.Provider.Attach(volumeID, nodeID)
+		switch {
+		case err != nil && httpResponse.StatusCode == http.StatusNotFound:
+			return nil, status.Errorf(codes.NotFound, "node or volume not found attempting to attach %s to %s", volumeID, nodeID)
+		case err != nil && packet.IsWrongDeviceAttachment(err):
+			if count > AttachMaxRetries {
+				return nil, err
+			}
+			count++
+			time.Sleep(AttachRetryInterval * time.Second)
+			continue forloop
+		case err != nil && packet.IsTooManyDevicesAttached(err):
+			return nil, err
+		case err != nil:
+			return nil, status.Errorf(codes.Unknown, "error attempting to attach %s to %s, %v", volumeID, nodeID, err)
+		case httpResponse.StatusCode != http.StatusOK && httpResponse.StatusCode != http.StatusCreated:
+			return nil, status.Errorf(codes.Unknown, "bad status from attach volumes, %s", httpResponse.Status)
+		default:
+			// if we made it this far, we have a valid attachment
+			break forloop
+		}
 	}
 
 	metadata := make(map[string]string)

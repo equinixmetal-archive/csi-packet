@@ -118,7 +118,7 @@ endif
 
 ## Lint the files
 lint: pkgs golint golangci-lint
-	@$(BUILD_CMD) $(LINTER) run --disable-all --enable=golint pkg/... cmd/
+	@$(BUILD_CMD) $(LINTER) run --disable-all --enable=golint pkg/... cmd/...
 
 ## Run unittests
 test: pkgs
