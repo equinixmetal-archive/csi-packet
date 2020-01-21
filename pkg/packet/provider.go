@@ -156,16 +156,31 @@ func (p *VolumeProviderPacketImpl) Create(createRequest *packngo.VolumeCreateReq
 
 // Attach wraps the packet api as an interface method
 func (p *VolumeProviderPacketImpl) Attach(volumeID, deviceID string) (*packngo.VolumeAttachment, *packngo.Response, error) {
+	// if the volume already is attached to a different node, reject it
 	volume, httpResponse, err := p.client().Volumes.Get(volumeID, &packngo.GetOptions{})
 	if err != nil || httpResponse.StatusCode != http.StatusOK {
 		return nil, httpResponse, errors.Wrap(err, "prechecking existence of volume attachment")
 	}
-	for _, attachment := range volume.Attachments {
+	// we only allow attaching to one node at a time
+	switch len(volume.Attachments) {
+	case 0:
+		// not attached anywhere, so attach it
+		return p.client().VolumeAttachments.Create(volumeID, deviceID)
+	case 1:
+		// attached to just one node, so it better be is
+		attachment := volume.Attachments[0]
 		if attachment.Device.ID == deviceID {
 			return p.client().VolumeAttachments.Get(attachment.ID, &packngo.GetOptions{})
 		}
+		return nil, nil, WrongDeviceAttachmentError{deviceID: attachment.Device.ID}
+	default:
+		// attached to more than one node, that is an error
+		devices := make([]string, 0)
+		for _, a := range volume.Attachments {
+			devices = append(devices, a.Device.ID)
+		}
+		return nil, nil, TooManyDevicesAttachedError{deviceIDs: devices}
 	}
-	return p.client().VolumeAttachments.Create(volumeID, deviceID)
 }
 
 // Detach wraps the packet api as an interface method
