@@ -62,7 +62,7 @@ spec:
               mountPath: /csi
         - name: packet-driver
           imagePullPolicy: Always
-          image: docker.io/packethost/csi-packet:v1.0.0
+          image: docker.io/packethost/csi-packet:v1.1.0
           args:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--config=/etc/cloud-sa/cloud-sa.json"
