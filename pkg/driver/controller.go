@@ -260,7 +260,7 @@ forloop:
 	for {
 		attachment, httpResponse, err = controller.Provider.Attach(volumeID, nodeID)
 		switch {
-		case err != nil && httpResponse.StatusCode == http.StatusNotFound:
+		case err != nil && httpResponse != nil && httpResponse.StatusCode == http.StatusNotFound:
 			return nil, status.Errorf(codes.NotFound, "node or volume not found attempting to attach %s to %s", volumeID, nodeID)
 		case err != nil && packet.IsWrongDeviceAttachment(err):
 			if count > AttachMaxRetries {
