@@ -20,13 +20,13 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: stateful-nginx 
+      app: stateful-nginx
   serviceName: "stateful-nginx"
   replicas: 2
   template:
     metadata:
       labels:
-        app: stateful-nginx 
+        app: stateful-nginx
     spec:
       terminationGracePeriodSeconds: 10
       containers:
@@ -45,4 +45,4 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
-          storage: 10Gi
+          storage: 100Gi
