@@ -2,6 +2,7 @@ _vendor*
 vendor/
 bin/
 dist/bin/
+hacks/
 .go/
 scratch
 .container*

@@ -16,6 +16,9 @@ LDFLAGS ?= -ldflags '-extldflags "-static" -X "$(PACKAGE_NAME)/pkg/version.VERSI
 # which arches can we support
 ARCHES=$(shell cat arches.txt)
 
+QEMU_VERSION?=4.2.0-7
+QEMU_IMAGE?=multiarch/qemu-user-static:$(QEMU_VERSION)
+
 # BUILDARCH is the host architecture
 # ARCH is the target architecture
 # we need to keep track of them separately
@@ -109,7 +112,7 @@ fmt-check:
 
 golangci-lint: $(LINTER)
 $(LINTER):
-	go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.17.1
+	mkdir -p hacks && cd hacks && (go mod init hacks || true) && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.27.0
 
 golint:
 ifeq (, $(shell which golint))
@@ -117,7 +120,7 @@ ifeq (, $(shell which golint))
 endif
 
 ## Lint the files
-lint: pkgs golint golangci-lint
+lint: pkgs golangci-lint
 	@$(BUILD_CMD) $(LINTER) run --disable-all --enable=golint pkg/... cmd/...
 
 ## Run unittests
@@ -182,7 +185,7 @@ sub-image-%:
 	@$(MAKE) ARCH=$* image
 
 ## make the image for a single ARCH
-image: register
+image:
 	docker image build -t $(BUILD_IMAGE):latest-$(ARCH) -f Dockerfile --build-arg BINARCH=${ARCH} --build-arg REPOARCH=${REPOARCH} .
 
 # Targets used when cross building.
@@ -190,9 +193,8 @@ image: register
 # Enable binfmt adding support for miscellaneous binary formats.
 # This is only needed when running non-native binaries.
 register:
-ifneq ($(BUILDARCH),$(ARCH))
-	docker run --rm --privileged multiarch/qemu-user-static:register || true
-endif
+	docker pull $(QEMU_IMAGE)
+	docker run --rm --privileged $(QEMU_IMAGE) --reset -p yes || true
 
 ## push the multi-arch manifest
 push-manifest: manifest-tool imagetag
