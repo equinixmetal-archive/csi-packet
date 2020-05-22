@@ -8,7 +8,6 @@ require (
 	github.com/container-storage-interface/spec v1.1.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/mock v1.1.1
-	github.com/golangci/golangci-lint v1.17.1 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/kubernetes-csi/csi-test v2.2.0+incompatible
@@ -19,6 +18,7 @@ require (
 	github.com/pkg/errors v0.8.0
 	github.com/sirupsen/logrus v1.0.5
 	github.com/spf13/cobra v0.0.2
+	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/crypto v0.0.0-20191029031824-8986dd9e96cf // indirect
