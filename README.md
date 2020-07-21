@@ -1,5 +1,12 @@
 # Kubernetes Container Storage Interface (CSI) plugin for Packet
 
+[![GitHub release](https://img.shields.io/github/release/packethost/csi-packet/all.svg?style=flat-square)](https://github.com/packethost/csi-packet/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/packethost/csi-packet)](https://goreportcard.com/report/github.com/packethost/csi-packet)
+![Continuous Integration](https://github.com/packethost/csi-packet/workflows/Continuous%20Integration/badge.svg)
+[![Docker Pulls](https://img.shields.io/docker/pulls/packethost/csi-packet.svg)](https://hub.docker.com/r/packethost/csi-packet/)
+[![Slack](https://slack.packet.com/badge.svg)](https://slack.packet.com)
+[![Twitter Follow](https://img.shields.io/twitter/follow/packethost.svg?style=social&label=Follow)](https://twitter.com/intent/follow?screen_name=packethost)
+
 `csi-packet` is the Kubernetes CSI implementation for Packet. Read more about the CSI [here](https://kubernetes-csi.github.io/docs/).
 
 ## Requirements
