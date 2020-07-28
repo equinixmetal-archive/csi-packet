@@ -40,7 +40,7 @@ spec:
           image: quay.io/k8scsi/csi-provisioner:v1.0.1
           args:
             - "--v=5"
-            - "--provisioner=net.packet.csi"
+            - "--provisioner=csi.packet.net"
             - "--csi-address=$(ADDRESS)"
           env:
             - name: ADDRESS

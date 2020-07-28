@@ -4,7 +4,7 @@ metadata:
   name: pv1
   annotations:
     # indicate that this is provisioned dynamically, so the system works properly
-    pv.kubernetes.io/provisioned-by: net.packet.csi
+    pv.kubernetes.io/provisioned-by: csi.packet.net
 spec:
   # make sure the storage class is one that is from the setup
   storageClassName: csi-packet-performance
@@ -16,7 +16,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   csi:
-    driver: net.packet.csi
+    driver: csi.packet.net
     fsType: ext4
     # You will have to add your Packet block storage volume ID for the volumeHandle
     #  since a PersistentVolume works with _already_ provisioned storage (static)
@@ -24,4 +24,4 @@ spec:
     #  PersistentVolumeClaim (pvc), for example, see demo-pod.yaml
     volumeHandle: BLOCK_VOLUME_ID
     volumeAttributes:
-      storage.kubernetes.io/csiProvisionerIdentity: 1572974631219-8081-net.packet.csi
+      storage.kubernetes.io/csiProvisionerIdentity: 1572974631219-8081-csi.packet.net

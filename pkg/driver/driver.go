@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	DriverName = "net.packet.csi"
+	DriverName = "csi.packet.net"
 )
 
 var (

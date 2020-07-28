@@ -21,7 +21,7 @@ spec:
           args:
             - "--v=5"
             - "--csi-address=$(ADDRESS)"
-            - "--kubelet-registration-path=/var/lib/kubelet/plugins/net.packet.csi/csi.sock"
+            - "--kubelet-registration-path=/var/lib/kubelet/plugins/csi.packet.net/csi.sock"
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -91,7 +91,7 @@ spec:
             type: DirectoryOrCreate
         - name: plugin-dir
           hostPath:
-            path: /var/lib/kubelet/plugins/net.packet.csi/
+            path: /var/lib/kubelet/plugins/csi.packet.net/
             type: DirectoryOrCreate
         - name: iscsiadm
           hostPath:

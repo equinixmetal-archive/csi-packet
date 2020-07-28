@@ -91,7 +91,7 @@ $ kubectl apply -f deploy/demo/demo-deployment.yaml
 
 You can run the binary with `--help` to get command-line options. Important options are:
 
-* `--endpoint=<path>` : (required) path to the kubelet registration socket. According to the spec, this should be `/var/lib/kubelet/plugins/<unique_provider_name>/csi.sock`. Thus we **strongly** recommend you mount it at `/var/lib/kubelet/plugins/net.packet.csi/csi.sock`. The deployment files in this repository assume that path.
+* `--endpoint=<path>` : (required) path to the kubelet registration socket. According to the spec, this should be `/var/lib/kubelet/plugins/<unique_provider_name>/csi.sock`. Thus we **strongly** recommend you mount it at `/var/lib/kubelet/plugins/csi.packet.net/csi.sock`. The deployment files in this repository assume that path.
 * `--v=<level>` : (optional) verbosity level per [logrus](https://github.com/sirupsen/logrus)
 * `--config=<path>` : (optional) path to config file, in json format, that contains the Packet configuration information as set below.
 * `--nodeid=<id>` : (optional) override the unique ID of this node as understood by the Packet API. If not provided, will retrieve the node ID from the Packet Metadata service.
@@ -122,7 +122,7 @@ The steps are as follows
 1. Install the `csi-packet` plugin as above into a kubernetes cluster, but use `node_controller_sanity_test.yaml` instead of `node.yaml`.
    The crucial difference is to start the driver with the packet credentials so that the csi-controller is running.
 2. `ssh` to a node, install a golang environment and build the csi-sanity binaries.
-3. Run `./csi-sanity --ginkgo.v --csi.endpoint=/var/lib/kubelet/plugins/net.packet.csi/csi.sock`
+3. Run `./csi-sanity --ginkgo.v --csi.endpoint=/var/lib/kubelet/plugins/csi.packet.net/csi.sock`
 
 Please report any failures to this repository.
 

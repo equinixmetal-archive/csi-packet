@@ -84,7 +84,7 @@ spec:
             type: Directory
         - name: plugin-dir
           hostPath:
-            path: /var/lib/kubelet/plugins/net.packet.csi/
+            path: /var/lib/kubelet/plugins/csi.packet.net/
             type: DirectoryOrCreate
         - name: iscsiadm
           hostPath:
