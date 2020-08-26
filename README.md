@@ -6,6 +6,7 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/packethost/csi-packet.svg)](https://hub.docker.com/r/packethost/csi-packet/)
 [![Slack](https://slack.packet.com/badge.svg)](https://slack.packet.com)
 [![Twitter Follow](https://img.shields.io/twitter/follow/packethost.svg?style=social&label=Follow)](https://twitter.com/intent/follow?screen_name=packethost)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fpackethost%2Fcsi-packet.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fpackethost%2Fcsi-packet?ref=badge_shield)
 
 `csi-packet` is the Kubernetes CSI implementation for Packet. Read more about the CSI [here](https://kubernetes-csi.github.io/docs/).
 
@@ -129,3 +130,7 @@ Please report any failures to this repository.
 ## Build and Design
 
 To build the Packet CSI and understand its design, please see [BUILD.md](./BUILD.md).
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fpackethost%2Fcsi-packet.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fpackethost%2Fcsi-packet?ref=badge_large)
