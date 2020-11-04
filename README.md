@@ -1,4 +1,4 @@
-# Kubernetes Container Storage Interface (CSI) plugin for Packet
+# Kubernetes Container Storage Interface (CSI) plugin for Equinix Metal
 
 [![GitHub release](https://img.shields.io/github/release/packethost/csi-packet/all.svg?style=flat-square)](https://github.com/packethost/csi-packet/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/packethost/csi-packet)](https://goreportcard.com/report/github.com/packethost/csi-packet)
