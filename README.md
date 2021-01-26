@@ -6,8 +6,13 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/packethost/csi-packet.svg)](https://hub.docker.com/r/packethost/csi-packet/)
 [![Slack](https://slack.packet.com/badge.svg)](https://slack.packet.com)
 [![Twitter Follow](https://img.shields.io/twitter/follow/packethost.svg?style=social&label=Follow)](https://twitter.com/intent/follow?screen_name=packethost)
+![](https://img.shields.io/badge/Stability-Maintained-green.svg)
 
 `csi-packet` is the Kubernetes CSI implementation for Packet. Read more about the CSI [here](https://kubernetes-csi.github.io/docs/).
+
+This repository is [Maintained](https://github.com/packethost/standards/blob/master/maintained-statement.md) meaning that this software is supported by Packet and its community - available to use in production environments.
+
+Please Note: "[Elastic Block Storage is only available in Core Legacy Sites: AMS1, DFW2, EWR1, NRT1, SJC1. If you do not have access to these sites, you may reach out to our support team to request it.](https://metal.equinix.com/developers/docs/resilience-recovery/elastic-block-storage/#legacy-only-sites)"
 
 ## Requirements
 
