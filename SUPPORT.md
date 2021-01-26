@@ -1,3 +1,3 @@
-If you require support, please email support@packet.com, visit the Packet IRC channel (#packethost on freenode), subscribe to the [Packet Community Slack](https://slack.packet.com/) channel or post an issue within this repository.
+If you require support, please email support@equinixmetal.com, visit the Equinix Metal IRC channel (#equinixmetal on freenode), or subscribe to the [Equnix Metal Community Slack](https://slack.equnixmetal.com/) channel.
 
 [Contributions](CONTRIBUTING.md) are welcome to help extend this work!
