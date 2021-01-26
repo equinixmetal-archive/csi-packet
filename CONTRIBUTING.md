@@ -1,8 +1,5 @@
 ## Hello Contributors!
-  Thx for your interest! We're so glad you're here. 
-
-### Important Resources
-  - bugs: [https://github.com/packethost/csi-packet/issues](https://github.com/packethost/csi-packet/issues)
+Thx for your interest! We're so glad you're here. 
 
 ### Code of Conduct
 Available via [https://github.com/packethost/csi-packet/blob/master/CODE_OF_CONDUCT.md](https://github.com/packethost/csi-packet/blob/master/CODE_OF_CONDUCT.md)
@@ -10,8 +7,5 @@ Available via [https://github.com/packethost/csi-packet/blob/master/CODE_OF_COND
 ### Environment Details
 [https://github.com/packethost/csi-packet/blob/master/MANIFEST.md](https://github.com/packethost/csi-packet/blob/master/MANIFEST.md)
 
-### How to Submit Change Requests
-Please submit change requests and / or features via [Issues](https://github.com/packethost/csi-packet/issues). There's no guarantee it'll be changed, but you never know until you try. I'll try to add comments as soon as possible, though.
-
 ### How to Report a Bug
-Bugs are problems in code, in the functionality of an application or in its UI design; you can submit them through [Issues](https://github.com/packethost/csi-packet/issues) as well.
+Bugs are problems in code, in the functionality of an application or in its UI design; you can submit them via our [Support channels](https://github.com/packethost/csi-packet/blob/master/SUPPORT.md); however, please note that "[Elastic Block Storage is only available in Core Legacy Sites: AMS1, DFW2, EWR1, NRT1, SJC1. If you do not have access to these sites, you may reach out to our support team to request it.](https://metal.equinix.com/developers/docs/resilience-recovery/elastic-block-storage/#legacy-only-sites)"
