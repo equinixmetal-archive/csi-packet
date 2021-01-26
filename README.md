@@ -12,6 +12,8 @@
 
 This repository is [Maintained](https://github.com/packethost/standards/blob/master/maintained-statement.md) meaning that this software is supported by Equinix Metal and its community - available to use in production environments.
 
+Please Note: "[Elastic Block Storage is only available in Core Legacy Sites: AMS1, DFW2, EWR1, NRT1, SJC1. If you do not have access to these sites, you may reach out to our support team to request it.](https://metal.equinix.com/developers/docs/resilience-recovery/elastic-block-storage/#legacy-only-sites)"
+
 ## Requirements
 
 At the current state of Kubernetes, running the CSI requires a few things.
