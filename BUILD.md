@@ -1,10 +1,10 @@
-# CSI plugin for Packet Build and Design
+# CSI plugin for Equinix Metal Build and Design
 
-The CSI Packet plugin allows the creation and mounting of packet storage volumes as
+The CSI Equinix Metal plugin allows the creation and mounting of metal storage volumes as
 persistent volume claims in a kubernetes cluster.
 
 ## Deploy
-Read how to deploy the Kubernetes CSI plugin for Packet in the [README.md](./README.md)!
+Read how to deploy the Kubernetes CSI plugin for Equnix Metal in the [README.md](./README.md)!
 
 ## Design
 The basic refernce for Kubernetes CSI is found at https://kubernetes-csi.github.io/docs/
@@ -23,7 +23,7 @@ A typical sequence of the tasks performed by the Controller and Node components 
 
 ## System configuration
 
-The plugin node component require particular configuration of the packet host with regard to the services that are running.
+The plugin node component require particular configuration of the metal host with regard to the services that are running.
 It relies on iscsid being configured correctly with the initiator name, and up multipathd running with a configuration that includes `user_friendly_names     yes`  This setup is not perfomed by the plugin.
 
 ## Deployment
@@ -32,9 +32,9 @@ The files found in `deploy/kubernetes/` define the deployment process, which fol
 
 The documentation for performing the deployment is in the [README.md](./README.md).
 
-### Packet credentials
+### Equinix Metal credentials
 
-Packet credentials are used by the controller to manage volumes.  They are configured with a json-formatted secret which contains
+Equinix Metal credentials are used by the controller to manage volumes.  They are configured with a json-formatted secret which contains
 
 * an authetication token
 * a project id
@@ -73,7 +73,7 @@ TODO: incorporate the liveness prob
 
 ### Mounted volumes and privilege
 
-The node processes must interact with services running on the host in order to connect, mount and format the packet volumes. These interactions require a particular pod configuration.  The driver invokes the *iscsiadm* and *multipath* client processes and they must communicate with the *iscisd* and *multipathd* systemd services.  In consequence, the pod
+The node processes must interact with services running on the host in order to connect, mount and format the Equinix Metal volumes. These interactions require a particular pod configuration.  The driver invokes the *iscsiadm* and *multipath* client processes and they must communicate with the *iscisd* and *multipathd* systemd services.  In consequence, the pod
  - uses `hostNetwork: true`
  - uses `privileged: true`
  - mounts `/etc`
@@ -138,4 +138,4 @@ The image always will be tagged `packethost/csi-packet:latest-<target_arch>`, e.
 
 ## Supported Platforms
 
-Packet CSI is supported on Linux only. As of this writing, it supports the architectures listed in [arch.txt](./arch.txt).
+Equinix Metal CSI is supported on Linux only. As of this writing, it supports the architectures listed in [arch.txt](./arch.txt).
