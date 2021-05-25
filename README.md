@@ -6,11 +6,15 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/packethost/csi-packet.svg)](https://hub.docker.com/r/packethost/csi-packet/)
 [![Slack](https://slack.equinixmetal.com/badge.svg)](https://slack.equinixmetal.com)
 [![Twitter Follow](https://img.shields.io/twitter/follow/equinixmetal.svg?style=social&label=Follow)](https://twitter.com/intent/follow?screen_name=equinixmetal)
-![](https://img.shields.io/badge/Stability-Maintained-green.svg)
+[![End of Life](https://img.shields.io/badge/Stability-EndOfLife-black.svg)](https://github.com/packethost/standards/blob/main/end-of-life-statement.md#end-of-life-statements)
 
-`csi-packet` is the Kubernetes CSI implementation for Equinix Metal. Read more about the CSI [here](https://kubernetes-csi.github.io/docs/).
+`csi-packet` was the Kubernetes CSI implementation for [Equinix Metal](https://metal.equinix.com/) Block Storage provided by [Datera](https://datera.io/). Read more about the CSI standard [here](https://kubernetes-csi.github.io/docs/).
 
-This repository is [Maintained](https://github.com/packethost/standards/blob/master/maintained-statement.md) meaning that this software is supported by Equinix Metal and its community - available to use in production environments.
+This repository is [End-Of-Life](https://github.com/packethost/standards/blob/main/end-of-life-statement.md)  that this software is no longer supported nor maintained by Equinix Metal or its community.
+
+*_The following information is obsolete. Please see /,https://metal.equinix.com/developers/docs/kubernetes/kubernetes-on-equinix-metal/#storage/. for alternatives._*
+
+---
 
 **If you have any queries about CSI or would like to raise any bug reports or features requests please [contact support](https://github.com/packethost/csi-packet/blob/master/SUPPORT.md).**
 
