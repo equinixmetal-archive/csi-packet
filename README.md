@@ -12,7 +12,7 @@
 
 This repository is [End-Of-Life](https://github.com/packethost/standards/blob/main/end-of-life-statement.md)  that this software is no longer supported nor maintained by Equinix Metal or its community.
 
-*_The following information is obsolete. Please see /,https://metal.equinix.com/developers/docs/kubernetes/kubernetes-on-equinix-metal/#storage/. for alternatives._*
+*_The following information is obsolete. Please see <https://metal.equinix.com/developers/docs/kubernetes/kubernetes-on-equinix-metal/#storage> for alternatives._*
 
 ---
 
